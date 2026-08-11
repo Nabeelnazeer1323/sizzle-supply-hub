@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAllotmentRouteImport } from './routes/_authenticated/allotment'
+import { Route as AuthenticatedPackingRouteImport } from './routes/_authenticated/packing'
 import { Route as AuthenticatedProductionRouteImport } from './routes/_authenticated/production'
 import { Route as AuthenticatedRequirementsRouteImport } from './routes/_authenticated/requirements'
 
@@ -35,6 +36,11 @@ const AuthenticatedAllotmentRoute = AuthenticatedAllotmentRouteImport.update({
   path: '/allotment',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPackingRoute = AuthenticatedPackingRouteImport.update({
+  id: '/packing',
+  path: '/packing',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedProductionRoute = AuthenticatedProductionRouteImport.update({
   id: '/production',
   path: '/production',
@@ -51,6 +57,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/allotment': typeof AuthenticatedAllotmentRoute
+  '/packing': typeof AuthenticatedPackingRoute
   '/production': typeof AuthenticatedProductionRoute
   '/requirements': typeof AuthenticatedRequirementsRoute
 }
@@ -58,6 +65,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/allotment': typeof AuthenticatedAllotmentRoute
+  '/packing': typeof AuthenticatedPackingRoute
   '/production': typeof AuthenticatedProductionRoute
   '/requirements': typeof AuthenticatedRequirementsRoute
 }
@@ -67,20 +75,24 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/allotment': typeof AuthenticatedAllotmentRoute
+  '/_authenticated/packing': typeof AuthenticatedPackingRoute
   '/_authenticated/production': typeof AuthenticatedProductionRoute
   '/_authenticated/requirements': typeof AuthenticatedRequirementsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/allotment' | '/production' | '/requirements'
+  fullPaths:
+    '/' | '/auth' | '/allotment' | '/packing' | '/production' | '/requirements'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/allotment' | '/production' | '/requirements'
+  to:
+    '/' | '/auth' | '/allotment' | '/packing' | '/production' | '/requirements'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/allotment'
+    | '/_authenticated/packing'
     | '/_authenticated/production'
     | '/_authenticated/requirements'
   fileRoutesById: FileRoutesById
@@ -121,6 +133,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAllotmentRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/packing': {
+      id: '/_authenticated/packing'
+      path: '/packing'
+      fullPath: '/packing'
+      preLoaderRoute: typeof AuthenticatedPackingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/production': {
       id: '/_authenticated/production'
       path: '/production'
@@ -140,12 +159,14 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAllotmentRoute: typeof AuthenticatedAllotmentRoute
+  AuthenticatedPackingRoute: typeof AuthenticatedPackingRoute
   AuthenticatedProductionRoute: typeof AuthenticatedProductionRoute
   AuthenticatedRequirementsRoute: typeof AuthenticatedRequirementsRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAllotmentRoute: AuthenticatedAllotmentRoute,
+  AuthenticatedPackingRoute: AuthenticatedPackingRoute,
   AuthenticatedProductionRoute: AuthenticatedProductionRoute,
   AuthenticatedRequirementsRoute: AuthenticatedRequirementsRoute,
 }
