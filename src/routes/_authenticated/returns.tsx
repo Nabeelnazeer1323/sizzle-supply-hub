@@ -11,7 +11,7 @@ import {
   type ReturnRow,
 } from "@/lib/supabase";
 import { WEEKDAYS, currentWeek, formatWeek, isoWeekDate, previousWeek } from "@/lib/week";
-import { WeekBar } from "@/components/WeekBar";
+import { WeekBar, normalizeDay } from "@/components/WeekBar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type Search = { year: number; week: number; day: string; location?: string };
+type Search = { year: number; week: number; day: string; location: string | undefined };
 
 export const Route = createFileRoute("/_authenticated/returns")({
   validateSearch: (search: Record<string, unknown>): Search => {
@@ -203,7 +203,7 @@ function ReturnsPage() {
         </p>
       </div>
 
-      <WeekBar year={search.year} week={search.week} day={search.day} hideDays />
+      <WeekBar year={search.year} week={search.week} day={normalizeDay(search.day)} showDay={false} />
 
       <div className="flex flex-wrap items-center gap-3">
         <Select

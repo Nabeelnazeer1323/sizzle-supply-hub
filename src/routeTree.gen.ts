@@ -16,6 +16,7 @@ import { Route as AuthenticatedAllotmentRouteImport } from './routes/_authentica
 import { Route as AuthenticatedPackingRouteImport } from './routes/_authenticated/packing'
 import { Route as AuthenticatedProductionRouteImport } from './routes/_authenticated/production'
 import { Route as AuthenticatedRequirementsRouteImport } from './routes/_authenticated/requirements'
+import { Route as AuthenticatedReturnsRouteImport } from './routes/_authenticated/returns'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -52,6 +53,11 @@ const AuthenticatedRequirementsRoute =
     path: '/requirements',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedReturnsRoute = AuthenticatedReturnsRouteImport.update({
+  id: '/returns',
+  path: '/returns',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/packing': typeof AuthenticatedPackingRoute
   '/production': typeof AuthenticatedProductionRoute
   '/requirements': typeof AuthenticatedRequirementsRoute
+  '/returns': typeof AuthenticatedReturnsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -68,6 +75,7 @@ export interface FileRoutesByTo {
   '/packing': typeof AuthenticatedPackingRoute
   '/production': typeof AuthenticatedProductionRoute
   '/requirements': typeof AuthenticatedRequirementsRoute
+  '/returns': typeof AuthenticatedReturnsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -78,14 +86,27 @@ export interface FileRoutesById {
   '/_authenticated/packing': typeof AuthenticatedPackingRoute
   '/_authenticated/production': typeof AuthenticatedProductionRoute
   '/_authenticated/requirements': typeof AuthenticatedRequirementsRoute
+  '/_authenticated/returns': typeof AuthenticatedReturnsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    '/' | '/auth' | '/allotment' | '/packing' | '/production' | '/requirements'
+    | '/'
+    | '/auth'
+    | '/allotment'
+    | '/packing'
+    | '/production'
+    | '/requirements'
+    | '/returns'
   fileRoutesByTo: FileRoutesByTo
   to:
-    '/' | '/auth' | '/allotment' | '/packing' | '/production' | '/requirements'
+    | '/'
+    | '/auth'
+    | '/allotment'
+    | '/packing'
+    | '/production'
+    | '/requirements'
+    | '/returns'
   id:
     | '__root__'
     | '/'
@@ -95,6 +116,7 @@ export interface FileRouteTypes {
     | '/_authenticated/packing'
     | '/_authenticated/production'
     | '/_authenticated/requirements'
+    | '/_authenticated/returns'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -154,6 +176,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRequirementsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/returns': {
+      id: '/_authenticated/returns'
+      path: '/returns'
+      fullPath: '/returns'
+      preLoaderRoute: typeof AuthenticatedReturnsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -162,6 +191,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPackingRoute: typeof AuthenticatedPackingRoute
   AuthenticatedProductionRoute: typeof AuthenticatedProductionRoute
   AuthenticatedRequirementsRoute: typeof AuthenticatedRequirementsRoute
+  AuthenticatedReturnsRoute: typeof AuthenticatedReturnsRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -169,6 +199,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPackingRoute: AuthenticatedPackingRoute,
   AuthenticatedProductionRoute: AuthenticatedProductionRoute,
   AuthenticatedRequirementsRoute: AuthenticatedRequirementsRoute,
+  AuthenticatedReturnsRoute: AuthenticatedReturnsRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
