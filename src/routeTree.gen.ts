@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedProductionRouteImport } from './routes/_authenticated/production'
 import { Route as AuthenticatedRequirementsRouteImport } from './routes/_authenticated/requirements'
 
 const IndexRoute = IndexRouteImport.update({
@@ -28,6 +29,11 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedProductionRoute = AuthenticatedProductionRouteImport.update({
+  id: '/production',
+  path: '/production',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedRequirementsRoute =
   AuthenticatedRequirementsRouteImport.update({
     id: '/requirements',
@@ -38,11 +44,13 @@ const AuthenticatedRequirementsRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/production': typeof AuthenticatedProductionRoute
   '/requirements': typeof AuthenticatedRequirementsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/production': typeof AuthenticatedProductionRoute
   '/requirements': typeof AuthenticatedRequirementsRoute
 }
 export interface FileRoutesById {
@@ -50,18 +58,20 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/production': typeof AuthenticatedProductionRoute
   '/_authenticated/requirements': typeof AuthenticatedRequirementsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/requirements'
+  fullPaths: '/' | '/auth' | '/production' | '/requirements'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/requirements'
+  to: '/' | '/auth' | '/production' | '/requirements'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/production'
     | '/_authenticated/requirements'
   fileRoutesById: FileRoutesById
 }
@@ -94,6 +104,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/production': {
+      id: '/_authenticated/production'
+      path: '/production'
+      fullPath: '/production'
+      preLoaderRoute: typeof AuthenticatedProductionRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/requirements': {
       id: '/_authenticated/requirements'
       path: '/requirements'
@@ -105,10 +122,12 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedProductionRoute: typeof AuthenticatedProductionRoute
   AuthenticatedRequirementsRoute: typeof AuthenticatedRequirementsRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedProductionRoute: AuthenticatedProductionRoute,
   AuthenticatedRequirementsRoute: AuthenticatedRequirementsRoute,
 }
 
