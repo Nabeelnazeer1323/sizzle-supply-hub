@@ -37,7 +37,7 @@ export function WeekBar({
       y += 1;
       w = 1;
     }
-    void navigate({ to: ".", search: (prev) => ({ ...prev, year: y, week: w }) });
+    void navigate({ to: ".", search: (prev: WeekSearch) => ({ ...prev, year: y, week: w }) });
   }
 
   return (
@@ -71,7 +71,7 @@ export function WeekBar({
                 size="sm"
                 variant={d === day ? "default" : "outline"}
                 onClick={() =>
-                  void navigate({ to: ".", search: (prev) => ({ ...prev, day: d }) })
+                  void navigate({ to: ".", search: (prev: WeekSearch) => ({ ...prev, day: d }) })
                 }
               >
                 {d.slice(0, 3)}
