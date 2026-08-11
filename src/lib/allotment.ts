@@ -12,7 +12,7 @@ export function largestRemainder(total: number, weights: number[]): number[] {
     const base = Math.floor(total / n);
     const out = new Array(n).fill(base);
     let rest = total - base * n;
-    for (let i = 0; rest > 0; i = (i + 1) % n, rest--) out[i] += 1;
+    for (let i = 0; rest > 0; i = (i + 1) % n, rest--) out[i] = (out[i] ?? 0) + 1;
     return out;
   }
   const exact = weights.map((w) => (w / sum) * total);
