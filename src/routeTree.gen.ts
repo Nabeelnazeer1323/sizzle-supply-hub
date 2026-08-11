@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AuthenticatedAllotmentRouteImport } from './routes/_authenticated/allotment'
 import { Route as AuthenticatedPackingRouteImport } from './routes/_authenticated/packing'
 import { Route as AuthenticatedProductionRouteImport } from './routes/_authenticated/production'
@@ -30,6 +31,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAllotmentRoute = AuthenticatedAllotmentRouteImport.update({
@@ -62,6 +68,7 @@ const AuthenticatedReturnsRoute = AuthenticatedReturnsRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/setup': typeof SetupRoute
   '/allotment': typeof AuthenticatedAllotmentRoute
   '/packing': typeof AuthenticatedPackingRoute
   '/production': typeof AuthenticatedProductionRoute
@@ -71,6 +78,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/setup': typeof SetupRoute
   '/allotment': typeof AuthenticatedAllotmentRoute
   '/packing': typeof AuthenticatedPackingRoute
   '/production': typeof AuthenticatedProductionRoute
@@ -82,6 +90,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/setup': typeof SetupRoute
   '/_authenticated/allotment': typeof AuthenticatedAllotmentRoute
   '/_authenticated/packing': typeof AuthenticatedPackingRoute
   '/_authenticated/production': typeof AuthenticatedProductionRoute
@@ -93,6 +102,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/setup'
     | '/allotment'
     | '/packing'
     | '/production'
@@ -102,6 +112,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/setup'
     | '/allotment'
     | '/packing'
     | '/production'
@@ -112,6 +123,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/setup'
     | '/_authenticated/allotment'
     | '/_authenticated/packing'
     | '/_authenticated/production'
@@ -123,6 +135,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  SetupRoute: typeof SetupRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -146,6 +159,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/allotment': {
@@ -209,6 +229,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  SetupRoute: SetupRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
