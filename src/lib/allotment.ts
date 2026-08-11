@@ -22,7 +22,7 @@ export function largestRemainder(total: number, weights: number[]): number[] {
     .map((e, i) => ({ i, frac: e - Math.floor(e) }))
     .sort((a, b) => b.frac - a.frac);
   for (let k = 0; remaining > 0; k = (k + 1) % n, remaining--) {
-    out[order[k]!.i] += 1;
+    out[order[k]!.i] = (out[order[k]!.i] ?? 0) + 1;
   }
   return out;
 }
