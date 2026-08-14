@@ -7,27 +7,8 @@ import { defaultWeekSearch } from "@/lib/week";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-const SQL = `-- 1. Returns: unsold items coming back from each location
-create table if not exists public.returns (
-  id uuid primary key default gen_random_uuid(),
-  location_id uuid not null references public.locations(id) on delete cascade,
-  product_id uuid not null references public.products(id) on delete cascade,
-  delivery_date date not null,
-  week_number int not null,
-  year int not null,
-  quantity_returned int not null default 0,
-  created_at timestamptz not null default now(),
-  unique (location_id, product_id, delivery_date)
-);
-
-grant select, insert, update, delete on public.returns to authenticated;
-grant all on public.returns to service_role;
-alter table public.returns enable row level security;
-
-create policy "Staff can read returns" on public.returns
-  for select to authenticated using (true);
-create policy "Staff can write returns" on public.returns
-  for all to authenticated using (true) with check (true);
+const SQL = `-- 1. Requirements: replace the is_snack flag with the product category
+alter table public.requirements add column if not exists category text not null default 'FOOD';
 
 -- 2. Roles: admin / kitchen / packer
 do $$ begin
@@ -77,6 +58,19 @@ begin
     exception when duplicate_object then null; end;
   end loop;
 end $$;`;
+
+const CLEANUP_SQL = `-- OPTIONAL — only run once you have confirmed the customer-facing app
+-- does not read these columns. This app has already stopped writing them.
+alter table public.requirements drop column if exists is_snack;
+alter table public.requirements drop column if exists week_number;
+alter table public.requirements drop column if exists year;
+
+alter table public.production drop column if exists week_number;
+alter table public.production drop column if exists year;
+
+alter table public.allocations drop column if exists week_number;
+alter table public.allocations drop column if exists year;`;
+
 
 export const Route = createFileRoute("/setup")({
   head: () => ({
