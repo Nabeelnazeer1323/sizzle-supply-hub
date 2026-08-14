@@ -1,35 +1,67 @@
-# What broke the other app, and how to undo it
+# Schema cleanup + mobile-first Sizzle Ops
 
-## What I verified against the shared backend
+## What I verified in the backend
 
-- `allocations` contains **56 rows, all created today (2026-08-11)** — nothing older. That table was empty before yesterday's work, so every row the customer app now sees is one this app wrote.
-- We also wrote **7 rows to `production`** and **16 rows to `requirements`** today.
-- No schema or security change happened: `returns` and `user_roles` still don't exist, so the `/setup` SQL (which would have enabled RLS on the shared tables) was never run. Anonymous reads still work normally.
+- `products` has no `category` column. The equivalent field is `types`, an array holding `FOOD`, `SNACK`, `BREAKFAST`, `DRINK`. It also has `delivery_day`, `is_snack`, `week_number`, `due_date`.
+- `requirements` has `delivery_date` plus `is_snack`, `week_number`, `year` (the latter three are `null` on older rows already).
+- `production` has `production_date` plus `week_number`, `year`.
+- `allocations` already has `quantity_returned` — no new table needed for returns.
+- This backend is your own Supabase project reached with a publishable key, so I cannot run DDL. Any `DROP COLUMN` has to be SQL you run in the SQL editor.
 
-## Why the customer app changed what it shows
+## Decisions locked in
 
-1. **The allocations table went from empty to populated.** The customer app decides what a location can buy from `allocations`. With no rows it evidently fell back to showing the general menu; now it finds rows and shows exactly the 7 dishes this app allotted, per location.
-2. **Wrong dishes for the day.** The allotment/packing screens filter products by `week_number` only and ignore `products.delivery_day`. Result: the rows dated **2026-08-12 (a Tuesday)** contain **Wednesday dishes** (Köttbullar, Mapo Tofu, Teriyaki kyckling) for all 8 locations — including locations that don't even take Tuesday deliveries.
-3. **Week-to-date mapping doesn't match your data.** Our code maps week 33 to ISO calendar dates (Mon 2026-08-10). Your week-33 products carry `due_date` 2026-08-13/08-16, so your operational week 33 is a different calendar span. Every date we wrote is therefore in the wrong delivery week.
+- Category = `products.types` values.
+- No column drops yet: the app stops reading/writing the redundant columns now; I hand you the drop SQL to run once the customer app is confirmed clear.
+- The separate `returns` table is dropped from the plan entirely; returns are an update to `allocations.quantity_returned`.
+- Returns UX: pick a location, then a tap-through list with steppers and one save.
 
-Net effect: the customer app is reading real-looking but fabricated allocations for the wrong dates and the wrong days.
+## Changes
 
-## Fix
+### 1. Stop using the redundant columns
 
-**Step 1 — Clean the shared data (restores the other app immediately)**
-- Delete the 56 `allocations` rows created 2026-08-11 (this returns the table to its previous empty state).
-- Delete the 7 `production` and 16 `requirements` rows created 2026-08-11.
-- I can only do this with write access; I'll give you a short, exact SQL snippet scoped by `created_at >= '2026-08-11'` to run in your SQL editor, or you can grant this app a signed-in write path and I'll do it from here.
+- `requirements`: derive the date only from `delivery_date`. Replace the `is_snack` flag with a `category` value taken from `products.types` (default `FOOD`), so a location can have separate FOOD / SNACK / BREAKFAST requirements for the same day. Stop writing `week_number` and `year`.
+- `production`: keyed by `production_date` only; stop writing `week_number` / `year`.
+- `allocations`: keyed by `delivery_date`; stop writing `week_number` / `year`, and never overwrite `quantity_returned` when saving an allotment.
+- Product lookups use `week_number` + `delivery_day` for menu selection (that stays — it lives on `products`), but nothing else stores a week.
 
-**Step 2 — Make this app safe against the shared backend**
-- Filter products by `delivery_day` (and `is_snack`) as well as `week_number` on Production, Allotment and Packing, so Wednesday dishes can never land on a Tuesday.
-- Derive the delivery date from your data (`products.due_date` / location `delivery_days`, which are lowercase) instead of ISO-week arithmetic, and only offer days a location actually receives.
-- Treat writes as explicit: the Allotment page saves only when you press Save, shows exactly which rows will be written, and warns that `allocations` is live customer-facing data.
-- Preserve `allocations.quantity_returned` (existing column used by the other app) rather than overwriting it.
+### 2. Requirements page
 
-**Step 3 — Optional guardrail**
-- Add a "sandbox mode" banner and a confirmation dialog before any write to `allocations`, since that table drives customer purchasing.
+- One row per location per category, with the category chosen from the categories present in that week's products.
+- Vegan % stays a soft target on the location.
+- Rows for locations not scheduled that day stay visible but dimmed.
 
-## Open question
+### 3. Returns — the driver flow
 
-Do you want the app to keep writing to the shared `allocations` table at all, or should it write to its own table (e.g. `ops_allocations`) and only publish to `allocations` on an explicit "Publish to customer app" action? The second option makes it impossible to disturb the other project while planning.
+New mobile-first `/returns` screen, built for speed:
+
+- Big location picker at the top (remembers the last one used).
+- One card per delivered dish for the chosen day, showing what was sent, with a large `−` / number / `+` stepper. Everything defaults to what's already stored (0 first time).
+- Quick actions: "All sold" (zero everything) and per-dish "all back" (set to the sent quantity).
+- Sticky footer with running totals, waste %, and a single big Save that writes `quantity_returned` on the existing allocation rows via an update, never a delete/insert.
+- Optimistic save with a toast, so the driver can leave immediately.
+
+### 4. Mobile-first across the whole app
+
+- The wide grids (Allotment, Requirements, Production) get a card/stacked layout below the `md` breakpoint and keep the table above it.
+- Bottom tab bar navigation on mobile, sidebar/top nav on desktop.
+- Larger tap targets, numeric keyboards on all quantity inputs, sticky save bars instead of buttons that scroll off.
+- Packing lists become swipeable per-location cards on mobile; printing stays desktop.
+
+### 5. Setup page
+
+- Remove the `returns` table and its policies from the setup SQL.
+- Add a clearly-labelled optional block with the `DROP COLUMN` statements for `requirements.is_snack`, `requirements.week_number`, `requirements.year`, `production.week_number`, `production.year`, `allocations.week_number`, `allocations.year` — plus the `ALTER TABLE requirements ADD COLUMN category text` you need to run before the category work goes live.
+
+## Technical notes
+
+- `src/lib/supabase.ts` row types updated to drop `week_number` / `year` / `is_snack` and add `category` / `quantity_returned`.
+- `src/lib/week.ts` keeps ISO week helpers only for menu selection and the week picker, not for row keys.
+- Returns saving uses `update ... eq('id', allocationId)` batched, so the customer app's rows keep their identity.
+
+## One dependency
+
+The `requirements.category` column must exist before the Requirements page can save categories. I'll include that `ALTER TABLE` at the top of the setup SQL; until you run it, the page falls back to treating everything as `FOOD`.
+
+## Also in this pass
+
+Existing TypeScript build errors from the previous session get fixed as part of the work: routes with required search params (`/requirements`) are missing `search` on their `Link`/`navigate`/`redirect` calls, and `WeekBar`s search reducer is typed against a required-field shape while TanStack passes a partial one. These are corrected while the pages are rewritten for mobile.
