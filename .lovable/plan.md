@@ -61,3 +61,7 @@ New mobile-first `/returns` screen, built for speed:
 ## One dependency
 
 The `requirements.category` column must exist before the Requirements page can save categories. I'll include that `ALTER TABLE` at the top of the setup SQL; until you run it, the page falls back to treating everything as `FOOD`.
+
+## Also in this pass
+
+Existing TypeScript build errors from the previous session get fixed as part of the work: routes with required search params (`/requirements`) are missing `search` on their `Link`/`navigate`/`redirect` calls, and `WeekBar`s search reducer is typed against a required-field shape while TanStack passes a partial one. These are corrected while the pages are rewritten for mobile.
