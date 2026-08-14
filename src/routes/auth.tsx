@@ -4,6 +4,7 @@ import { ChefHat } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/lib/supabase";
+import { defaultWeekSearch } from "@/lib/week";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,7 +32,7 @@ function AuthPage() {
 
   useEffect(() => {
     void supabase.auth.getSession().then(({ data }) => {
-      if (data.session) void navigate({ to: "/requirements", replace: true });
+      if (data.session) void navigate({ to: "/requirements", search: defaultWeekSearch(), replace: true });
     });
   }, [navigate]);
 
@@ -44,7 +45,7 @@ function AuthPage() {
       toast.error(error.message);
       return;
     }
-    void navigate({ to: "/requirements", replace: true });
+    void navigate({ to: "/requirements", search: defaultWeekSearch(), replace: true });
   }
 
   async function signUp(e: React.FormEvent) {
@@ -61,7 +62,7 @@ function AuthPage() {
       return;
     }
     if (data.session) {
-      void navigate({ to: "/requirements", replace: true });
+      void navigate({ to: "/requirements", search: defaultWeekSearch(), replace: true });
     } else {
       toast.success("Check your inbox to confirm the account, then sign in.");
     }

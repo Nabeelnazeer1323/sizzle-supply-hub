@@ -13,6 +13,9 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   },
 });
 
+export const PRODUCT_COLUMNS =
+  "id,name,translated_name,week_number,delivery_day,is_vegan,is_vegetarian,is_snack,types,image_url";
+
 export type Location = {
   id: string;
   name: string;
@@ -30,44 +33,34 @@ export type Product = {
   is_vegan: boolean | null;
   is_vegetarian: boolean | null;
   is_snack: boolean | null;
+  /** Product category tags, e.g. ["FOOD"], ["SNACK"], ["BREAKFAST"], ["DRINK"]. */
+  types: string[] | null;
   image_url: string | null;
 };
 
+/** Keyed by production_date — week/year are never written by this app. */
 export type ProductionRow = {
   id: string;
   product_id: string;
   production_date: string;
-  week_number: number;
-  year: number;
   quantity_produced: number;
 };
 
+/** Keyed by delivery_date + category — week/year/is_snack are never written. */
 export type RequirementRow = {
   id: string;
   location_id: string;
   delivery_date: string;
-  week_number: number;
-  year: number;
   total_required: number;
-  is_snack: boolean | null;
+  category: string | null;
 };
 
+/** Keyed by delivery_date. quantity_returned is filled in by the returns flow. */
 export type AllocationRow = {
   id: string;
   location_id: string;
   product_id: string;
   delivery_date: string;
-  week_number: number;
-  year: number;
   quantity_allocated: number;
-};
-
-export type ReturnRow = {
-  id: string;
-  location_id: string;
-  product_id: string;
-  delivery_date: string;
-  week_number: number;
-  year: number;
-  quantity_returned: number;
+  quantity_returned: number | null;
 };

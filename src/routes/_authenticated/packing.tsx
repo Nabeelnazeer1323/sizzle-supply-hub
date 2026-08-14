@@ -4,6 +4,7 @@ import { Printer } from "lucide-react";
 
 import {
   supabase,
+  PRODUCT_COLUMNS,
   type AllocationRow,
   type Location,
   type Product,
@@ -69,16 +70,14 @@ function PackingPage() {
   });
 
   const productsQuery = useQuery({
-    queryKey: ["products", week, day],
+    queryKey: ["products-week", week],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select(
-          "id,name,translated_name,week_number,delivery_day,is_vegan,is_vegetarian,is_snack,image_url",
-        )
+        .select(PRODUCT_COLUMNS)
         .eq("week_number", week);
       if (error) throw error;
-      return data as Product[];
+      return data as unknown as Product[];
     },
   });
 
@@ -89,9 +88,9 @@ function PackingPage() {
   );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div className="print:hidden">
-        <h1 className="text-2xl font-semibold tracking-tight">Packing lists</h1>
+        <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Packing lists</h1>
         <p className="text-sm text-muted-foreground">
           What goes in each fridge today, straight from the saved allotment.
         </p>
@@ -99,7 +98,7 @@ function PackingPage() {
 
       <WeekBar year={year} week={week} day={day} />
 
-      <div className="flex justify-end print:hidden">
+      <div className="hidden justify-end md:flex print:hidden">
         <Button variant="outline" onClick={() => window.print()}>
           <Printer className="size-4" />
           Print all
@@ -113,7 +112,7 @@ function PackingPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {locations.map((loc) => {
             const rows = allocations
               .filter((a) => a.location_id === loc.id)
@@ -126,10 +125,10 @@ function PackingPage() {
             );
             return (
               <Card key={loc.id} className="break-inside-avoid print:break-after-page">
-                <CardHeader>
-                  <CardTitle className="flex flex-wrap items-baseline justify-between gap-2">
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex flex-wrap items-baseline justify-between gap-2 text-base">
                     <span>{loc.name}</span>
-                    <span className="text-sm font-normal text-muted-foreground">
+                    <span className="text-xs font-normal text-muted-foreground">
                       {formatDate(date)} · {total} items ({vegan} vegan)
                     </span>
                   </CardTitle>
@@ -137,11 +136,11 @@ function PackingPage() {
                 <CardContent>
                   <ul className="divide-y divide-border">
                     {rows.map((r) => (
-                      <li key={r.id} className="flex items-center gap-3 py-2">
-                        <span className="w-12 text-right text-lg font-semibold tabular-nums">
+                      <li key={r.id} className="flex items-center gap-3 py-2.5">
+                        <span className="w-10 text-right text-lg font-semibold tabular-nums">
                           {r.quantity_allocated}
                         </span>
-                        <span className="flex-1">
+                        <span className="min-w-0 flex-1 text-sm">
                           {r.product?.name ?? r.product_id}
                           {r.product?.translated_name &&
                             r.product.translated_name !== r.product.name && (
@@ -150,7 +149,11 @@ function PackingPage() {
                               </span>
                             )}
                         </span>
-                        {r.product?.is_vegan && <Badge variant="secondary">Vegan</Badge>}
+                        {r.product?.is_vegan && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            Vegan
+                          </Badge>
+                        )}
                       </li>
                     ))}
                   </ul>
