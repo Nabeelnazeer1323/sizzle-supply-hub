@@ -88,15 +88,21 @@ export const Route = createFileRoute("/setup")({
 });
 
 function SetupPage() {
-  const [copied, setCopied] = useState(false);
+  const [copied, setCopied] = useState<string | null>(null);
   const projectRef = SUPABASE_URL.replace("https://", "").split(".")[0];
+
+  function copy(key: string, sql: string) {
+    void navigator.clipboard.writeText(sql);
+    setCopied(key);
+    setTimeout(() => setCopied(null), 2000);
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="text-2xl font-semibold tracking-tight">Finish setup</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Two things are missing from your database: a table for returns and a table for staff roles.
-        Run the SQL below once in your Supabase SQL editor and everything in the app will light up.
+        Requirements need a <code>category</code> column, and staff roles need a table. Run the SQL
+        below once in your Supabase SQL editor and everything in the app will light up.
       </p>
 
       <Card className="mt-6">
@@ -116,16 +122,9 @@ function SetupPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <Button
-            variant="outline"
-            onClick={() => {
-              void navigator.clipboard.writeText(SQL);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 2000);
-            }}
-          >
-            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
-            {copied ? "Copied" : "Copy SQL"}
+          <Button variant="outline" onClick={() => copy("main", SQL)}>
+            {copied === "main" ? <Check className="size-4" /> : <Copy className="size-4" />}
+            {copied === "main" ? "Copied" : "Copy SQL"}
           </Button>
           <pre className="max-h-[28rem] overflow-auto rounded-md bg-muted p-4 text-xs leading-relaxed">
             <code>{SQL}</code>
@@ -133,11 +132,34 @@ function SetupPage() {
         </CardContent>
       </Card>
 
+      <Card className="mt-6 border-destructive/40">
+        <CardHeader>
+          <CardTitle className="text-base">Optional cleanup — drop unused columns</CardTitle>
+          <CardDescription>
+            This app no longer writes <code>week_number</code>, <code>year</code> or{" "}
+            <code>is_snack</code>; the delivery/production date is the only key it needs. Other apps
+            share this database, so only run this once you have confirmed nothing else reads them.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button variant="outline" onClick={() => copy("cleanup", CLEANUP_SQL)}>
+            {copied === "cleanup" ? <Check className="size-4" /> : <Copy className="size-4" />}
+            {copied === "cleanup" ? "Copied" : "Copy cleanup SQL"}
+          </Button>
+          <pre className="max-h-80 overflow-auto rounded-md bg-muted p-4 text-xs leading-relaxed">
+            <code>{CLEANUP_SQL}</code>
+          </pre>
+        </CardContent>
+      </Card>
+
       <div className="mt-6 flex gap-2">
         <Button asChild>
-          <Link to="/requirements" search={defaultWeekSearch()}>Back to the app</Link>
+          <Link to="/requirements" search={defaultWeekSearch()}>
+            Back to the app
+          </Link>
         </Button>
       </div>
     </div>
   );
 }
+
