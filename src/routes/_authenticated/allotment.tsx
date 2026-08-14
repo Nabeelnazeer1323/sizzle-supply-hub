@@ -30,7 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-type Search = { year: number; week: number; day: string; category?: string };
+type Search = { year: number; week: number; day: string; category: string | undefined };
 
 export const Route = createFileRoute("/_authenticated/allotment")({
   validateSearch: (search: Record<string, unknown>): Search => {

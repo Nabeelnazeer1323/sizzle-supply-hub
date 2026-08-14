@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type Search = { date?: string; location?: string };
+type Search = { date: string | undefined; location: string | undefined };
 
 const LAST_LOCATION_KEY = "sizzle:last-returns-location";
 

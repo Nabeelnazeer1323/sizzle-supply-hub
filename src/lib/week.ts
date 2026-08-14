@@ -64,3 +64,17 @@ export function defaultWeekSearch(): { year: number; week: number; day: string }
   const { year, week } = currentWeek();
   return { year, week, day: "Monday" };
 }
+
+/** Today's date as yyyy-mm-dd (local calendar day). */
+export function todayIso(): string {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
+}
+
+/** Move a yyyy-mm-dd date by a number of days. */
+export function shiftDate(iso: string, days: number): string {
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
