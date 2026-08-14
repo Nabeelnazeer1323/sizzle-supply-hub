@@ -12,6 +12,7 @@ import {
 import type { ComponentType, ReactNode } from "react";
 
 import { supabase } from "@/lib/supabase";
+import { defaultWeekSearch } from "@/lib/week";
 import { useAuth, type AppRole } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -68,7 +69,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2.5">
           <Link
             to="/requirements"
-            search={{}}
+            search={defaultWeekSearch()}
             className="flex items-center gap-2 font-semibold tracking-tight"
           >
             <span className="flex size-8 items-center justify-center rounded-md bg-primary text-primary-foreground">

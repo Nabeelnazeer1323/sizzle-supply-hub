@@ -58,3 +58,9 @@ export function formatDate(iso: string) {
     timeZone: "UTC",
   });
 }
+
+/** Default search params for week-scoped routes. */
+export function defaultWeekSearch(): { year: number; week: number; day: string } {
+  const { year, week } = currentWeek();
+  return { year, week, day: "Monday" };
+}

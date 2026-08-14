@@ -3,6 +3,7 @@ import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 
 import { SUPABASE_URL } from "@/lib/supabase";
+import { defaultWeekSearch } from "@/lib/week";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -140,7 +141,7 @@ function SetupPage() {
 
       <div className="mt-6 flex gap-2">
         <Button asChild>
-          <Link to="/requirements">Back to the app</Link>
+          <Link to="/requirements" search={defaultWeekSearch()}>Back to the app</Link>
         </Button>
       </div>
     </div>
