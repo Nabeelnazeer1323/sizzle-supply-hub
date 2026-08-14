@@ -1,20 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import {
   supabase,
+  PRODUCT_COLUMNS,
   type AllocationRow,
   type Location,
   type Product,
-  type ReturnRow,
 } from "@/lib/supabase";
-import { WEEKDAYS, currentWeek, formatWeek, isoWeekDate, previousWeek } from "@/lib/week";
-import { WeekBar, normalizeDay } from "@/components/WeekBar";
+import { formatDate, todayIso, shiftDate } from "@/lib/week";
+import { QtyStepper } from "@/components/QtyStepper";
+import { SaveBar } from "@/components/SaveBar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Select,
   SelectContent,
@@ -23,27 +24,24 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type Search = { year: number; week: number; day: string; location: string | undefined };
+type Search = { date?: string; location?: string };
+
+const LAST_LOCATION_KEY = "sizzle:last-returns-location";
 
 export const Route = createFileRoute("/_authenticated/returns")({
-  validateSearch: (search: Record<string, unknown>): Search => {
-    const now = currentWeek();
-    return {
-      year: Number(search['year']) || now.year,
-      week: Number(search['week']) || now.week,
-      day: typeof search['day'] === "string" ? search['day'] : "Monday",
-      location: typeof search['location'] === "string" ? search['location'] : undefined,
-    };
-  },
+  validateSearch: (search: Record<string, unknown>): Search => ({
+    date: typeof search['date'] === "string" ? search['date'] : undefined,
+    location: typeof search['location'] === "string" ? search['location'] : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Returns — Sizzle Ops" },
       {
         name: "description",
-        content: "Log unsold dishes returned from each location for the previous week.",
+        content: "Log unsold dishes picked up from each location, straight from the delivery run.",
       },
       { property: "og:title", content: "Returns — Sizzle Ops" },
-      { property: "og:description", content: "Record last week's unsold items per location." },
+      { property: "og:description", content: "Fast pickup logging of unsold items per location." },
     ],
   }),
   component: ReturnsPage,
@@ -54,8 +52,7 @@ function ReturnsPage() {
   const navigate = Route.useNavigate();
   const queryClient = useQueryClient();
 
-  // Returns are always registered against the week BEFORE the selected week.
-  const prev = previousWeek(search.year, search.week);
+  const date = search.date ?? todayIso();
 
   const locationsQuery = useQuery({
     queryKey: ["locations"],
@@ -70,218 +67,212 @@ function ReturnsPage() {
     },
   });
 
-  const locations = locationsQuery.data ?? [];
-  const locationId = search.location ?? locations[0]?.id;
+  const locations = useMemo(() => locationsQuery.data ?? [], [locationsQuery.data]);
 
-  const dates = WEEKDAYS.map((d) => ({ day: d, date: isoWeekDate(prev.year, prev.week, d) }));
+  // Remember the location the driver used last so the flow is one tap on arrival.
+  const [remembered, setRemembered] = useState<string | undefined>(undefined);
+  useEffect(() => {
+    const stored = window.localStorage.getItem(LAST_LOCATION_KEY);
+    if (stored) setRemembered(stored);
+  }, []);
+
+  const locationId =
+    search.location ??
+    (remembered && locations.some((l) => l.id === remembered) ? remembered : locations[0]?.id);
+
+  function pickLocation(id: string) {
+    window.localStorage.setItem(LAST_LOCATION_KEY, id);
+    setRemembered(id);
+    void navigate({ search: (p: Search) => ({ ...p, location: id }) });
+  }
+
+  function setDate(next: string) {
+    void navigate({ search: (p: Search) => ({ ...p, date: next }) });
+  }
 
   const allocationsQuery = useQuery({
-    queryKey: ["allocations-week", prev.year, prev.week, locationId],
+    queryKey: ["allocations", date, locationId],
     enabled: Boolean(locationId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("allocations")
         .select("*")
-        .eq("location_id", locationId!)
-        .in(
-          "delivery_date",
-          dates.map((d) => d.date),
-        );
+        .eq("delivery_date", date)
+        .eq("location_id", locationId!);
       if (error) throw error;
       return data as AllocationRow[];
     },
   });
 
+  const allocations = useMemo(() => allocationsQuery.data ?? [], [allocationsQuery.data]);
+
   const productsQuery = useQuery({
-    queryKey: ["products", prev.week],
+    queryKey: ["products-by-id", allocations.map((a) => a.product_id).sort().join(",")],
+    enabled: allocations.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
-        .select(
-          "id,name,translated_name,week_number,delivery_day,is_vegan,is_vegetarian,is_snack,image_url",
-        )
-        .eq("week_number", prev.week);
+        .select(PRODUCT_COLUMNS)
+        .in("id", allocations.map((a) => a.product_id));
       if (error) throw error;
-      return data as Product[];
+      return data as unknown as Product[];
     },
   });
 
-  const returnsQuery = useQuery({
-    queryKey: ["returns", prev.year, prev.week, locationId],
-    enabled: Boolean(locationId),
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("returns")
-        .select("*")
-        .eq("location_id", locationId!)
-        .eq("week_number", prev.week)
-        .eq("year", prev.year);
-      if (error) {
-        if (error.message.toLowerCase().includes("returns")) return [] as ReturnRow[];
-        throw error;
-      }
-      return data as ReturnRow[];
-    },
-  });
-
-  const allocations = allocationsQuery.data ?? [];
   const products = productsQuery.data ?? [];
 
-  const [draft, setDraft] = useState<Record<string, string>>({});
+  const [draft, setDraft] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    const next: Record<string, string> = {};
-    for (const a of allocations) {
-      const key = `${a.delivery_date}|${a.product_id}`;
-      const existing = (returnsQuery.data ?? []).find(
-        (r) => r.delivery_date === a.delivery_date && r.product_id === a.product_id,
-      );
-      next[key] = existing ? String(existing.quantity_returned) : "";
-    }
+    const next: Record<string, number> = {};
+    for (const a of allocations) next[a.id] = a.quantity_returned ?? 0;
     setDraft(next);
-  }, [allocationsQuery.data, returnsQuery.data]);
+  }, [allocations]);
 
   const save = useMutation({
     mutationFn: async () => {
-      const rows = Object.entries(draft)
-        .filter(([, v]) => v.trim() !== "")
-        .map(([key, v]) => {
-          const [date, productId] = key.split("|");
-          return {
-            location_id: locationId!,
-            product_id: productId!,
-            delivery_date: date!,
-            week_number: prev.week,
-            year: prev.year,
-            quantity_returned: Number(v),
-          };
-        });
-
-      const { error: delError } = await supabase
-        .from("returns")
-        .delete()
-        .eq("location_id", locationId!)
-        .eq("week_number", prev.week)
-        .eq("year", prev.year);
-      if (delError) throw delError;
-
-      if (rows.length > 0) {
-        const { error } = await supabase.from("returns").insert(rows);
+      for (const a of allocations) {
+        const qty = draft[a.id] ?? 0;
+        if ((a.quantity_returned ?? 0) === qty) continue;
+        const { error } = await supabase
+          .from("allocations")
+          .update({ quantity_returned: qty })
+          .eq("id", a.id);
         if (error) throw error;
       }
     },
     onSuccess: () => {
       toast.success("Returns saved");
-      void queryClient.invalidateQueries({ queryKey: ["returns"] });
+      void queryClient.invalidateQueries({ queryKey: ["allocations"] });
     },
-    onError: (e: Error) =>
-      toast.error(
-        e.message.includes("returns")
-          ? "The returns table doesn't exist yet — open Setup to create it."
-          : e.message,
-      ),
+    onError: (e: Error) => toast.error(e.message),
   });
 
   const totals = allocations.reduce(
     (acc, a) => {
-      const returned = Number(draft[`${a.delivery_date}|${a.product_id}`]) || 0;
       acc.delivered += a.quantity_allocated;
-      acc.returned += returned;
+      acc.returned += draft[a.id] ?? 0;
       return acc;
     },
     { delivered: 0, returned: 0 },
   );
-  const wastePct = totals.delivered ? Math.round((totals.returned / totals.delivered) * 100) : 0;
+  const wastePct = totals.delivered
+    ? Math.round((totals.returned / totals.delivered) * 100)
+    : 0;
+
+  const rows = allocations
+    .map((a) => ({ ...a, product: products.find((p) => p.id === a.product_id) }))
+    .sort((a, b) => (a.product?.name ?? "").localeCompare(b.product?.name ?? ""));
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Returns</h1>
+        <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Returns pickup</h1>
         <p className="text-sm text-muted-foreground">
-          Unsold items coming back from the fridges. Dishes are pulled from the previous week&apos;s
-          deliveries — {formatWeek(prev.year, prev.week)}.
+          Tap what came back. Everything starts at zero — only touch the dishes with leftovers.
         </p>
       </div>
 
-      <WeekBar year={search.year} week={search.week} day={normalizeDay(search.day)} showDay={false} />
-
-      <div className="flex flex-wrap items-center gap-3">
-        <Select
-          value={locationId ?? ""}
-          onValueChange={(v) =>
-            void navigate({ search: (p: Search) => ({ ...p, location: v }) })
-          }
-        >
-          <SelectTrigger className="w-64">
+      <div className="space-y-2 rounded-xl border border-border bg-card p-3">
+        <Select value={locationId ?? ""} onValueChange={pickLocation}>
+          <SelectTrigger className="h-12 w-full text-base">
             <SelectValue placeholder="Select location" />
           </SelectTrigger>
           <SelectContent>
             {locations.map((l) => (
-              <SelectItem key={l.id} value={l.id}>
+              <SelectItem key={l.id} value={l.id} className="py-3 text-base">
                 {l.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <div className="text-sm text-muted-foreground">
-          {totals.delivered} delivered · {totals.returned} returned ·{" "}
-          <span className={wastePct > 15 ? "font-medium text-destructive" : ""}>
-            {wastePct}% waste
-          </span>
+
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-11 shrink-0"
+            aria-label="Previous day"
+            onClick={() => setDate(shiftDate(date, -1))}
+          >
+            <ChevronLeft className="size-5" />
+          </Button>
+          <div className="flex-1 text-center text-sm font-medium">{formatDate(date)}</div>
+          <Button
+            variant="outline"
+            size="icon"
+            className="size-11 shrink-0"
+            aria-label="Next day"
+            onClick={() => setDate(shiftDate(date, 1))}
+          >
+            <ChevronRight className="size-5" />
+          </Button>
         </div>
-        <Button className="ml-auto" onClick={() => save.mutate()} disabled={save.isPending}>
-          {save.isPending ? "Saving…" : "Save returns"}
-        </Button>
       </div>
 
-      {allocations.length === 0 ? (
+      {rows.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            No deliveries recorded for this location in {formatWeek(prev.year, prev.week)}.
+            Nothing was delivered to this location on {formatDate(date)}.
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {dates.map(({ day, date }) => {
-            const rows = allocations.filter((a) => a.delivery_date === date);
-            if (rows.length === 0) return null;
+        <div className="space-y-2">
+          {rows.map((r) => {
+            const value = draft[r.id] ?? 0;
             return (
-              <Card key={date}>
-                <CardHeader>
-                  <CardTitle className="text-base">
-                    {day} <span className="text-muted-foreground">· {date}</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {rows.map((a) => {
-                    const product = products.find((p) => p.id === a.product_id);
-                    const key = `${a.delivery_date}|${a.product_id}`;
-                    return (
-                      <div key={a.id} className="flex items-center gap-3">
-                        <span className="flex-1 text-sm">{product?.name ?? a.product_id}</span>
-                        <span className="w-24 text-right text-sm text-muted-foreground">
-                          sent {a.quantity_allocated}
-                        </span>
-                        <Input
-                          className="w-28 text-center"
-                          inputMode="numeric"
-                          placeholder="returned"
-                          value={draft[key] ?? ""}
-                          onChange={(e) =>
-                            setDraft((d) => ({
-                              ...d,
-                              [key]: e.target.value.replace(/[^0-9]/g, ""),
-                            }))
-                          }
-                        />
-                      </div>
-                    );
-                  })}
+              <Card key={r.id} className={value > 0 ? "border-primary/50" : ""}>
+                <CardContent className="flex items-center gap-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">
+                      {r.product?.name ?? r.product_id}
+                    </div>
+                    <button
+                      type="button"
+                      className="mt-0.5 text-xs text-muted-foreground underline-offset-2 hover:underline"
+                      onClick={() =>
+                        setDraft((d) => ({ ...d, [r.id]: r.quantity_allocated }))
+                      }
+                    >
+                      sent {r.quantity_allocated} · all back
+                    </button>
+                  </div>
+                  <QtyStepper
+                    ariaLabel={`${r.product?.name ?? "dish"} returned`}
+                    value={value}
+                    max={r.quantity_allocated}
+                    onChange={(v) => setDraft((d) => ({ ...d, [r.id]: v }))}
+                  />
                 </CardContent>
               </Card>
             );
           })}
         </div>
+      )}
+
+      {rows.length > 0 && (
+        <SaveBar
+          summary={
+            <span>
+              {totals.returned} back of {totals.delivered} ·{" "}
+              <span className={wastePct > 15 ? "font-medium text-destructive" : ""}>
+                {wastePct}% waste
+              </span>
+            </span>
+          }
+          onSave={() => save.mutate()}
+          saving={save.isPending}
+          label="Save returns"
+          secondary={
+            <Button
+              variant="outline"
+              className="h-12"
+              onClick={() => setDraft(Object.fromEntries(allocations.map((a) => [a.id, 0])))}
+            >
+              All sold
+            </Button>
+          }
+        />
       )}
     </div>
   );
