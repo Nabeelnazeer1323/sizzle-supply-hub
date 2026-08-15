@@ -15,12 +15,13 @@ import {
 } from "@/lib/supabase";
 import { currentWeek, isoWeekDate } from "@/lib/week";
 import {
-  categoriesOf,
-  categoryLabel,
+  DEFAULT_CATEGORY,
   normalizeCategory,
   productCategory,
   type Category,
 } from "@/lib/category";
+import { deliversOn } from "@/lib/delivery";
+
 import { computeAllotment, locationTotals } from "@/lib/allotment";
 import { WeekBar, normalizeDay } from "@/components/WeekBar";
 import { QtyStepper } from "@/components/QtyStepper";
