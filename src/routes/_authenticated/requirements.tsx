@@ -11,7 +11,7 @@ import { WeekBar, normalizeDay } from "@/components/WeekBar";
 import { QtyStepper } from "@/components/QtyStepper";
 import { SaveBar } from "@/components/SaveBar";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
 
 type Search = { year: number; week: number; day: string };
 
