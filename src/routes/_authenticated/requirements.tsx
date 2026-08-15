@@ -10,7 +10,7 @@ import { DEFAULT_CATEGORY, normalizeCategory } from "@/lib/category";
 import { WeekBar, normalizeDay } from "@/components/WeekBar";
 import { QtyStepper } from "@/components/QtyStepper";
 import { SaveBar } from "@/components/SaveBar";
-import { Input } from "@/components/ui/input";
+
 
 
 type Search = { year: number; week: number; day: string };
