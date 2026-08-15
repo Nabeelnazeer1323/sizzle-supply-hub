@@ -149,9 +149,17 @@ function ReturnsPage() {
 
   const products = useMemo(() => productsQuery.data ?? [], [productsQuery.data]);
 
+  // Show the run that is due today; if that has already been logged (or was
+  // never delivered), fall back to whatever is still outstanding further back
+  // so nothing gets stranded.
+  const inStrict = pending.filter(
+    (a) => a.delivery_date >= window_.strictStart && a.delivery_date <= window_.strictEnd,
+  );
+  const candidates = inStrict.length > 0 ? inStrict : pending;
+
   const rows = useMemo(
     () =>
-      pending
+      candidates
         .map((a) => ({ ...a, product: products.find((p) => p.id === a.product_id) }))
         // For Storytel, keep the dishes that really ran that day.
         .filter(
@@ -165,7 +173,8 @@ function ReturnsPage() {
             a.delivery_date.localeCompare(b.delivery_date) ||
             (a.product?.name ?? "").localeCompare(b.product?.name ?? ""),
         ),
-    [pending, products, window_.mode],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [candidates, products, window_.mode],
   );
 
   const [draft, setDraft] = useState<Record<string, number>>({});
