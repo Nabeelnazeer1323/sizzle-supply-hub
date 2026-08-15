@@ -6,7 +6,7 @@ Two separate causes, both verified against the live data:
 
 **a) Every allocation row already has `quantity_returned = 0`.** All 56 allocation rows in the backend (dates 2026-08-10 and 2026-08-12) carry a value — mostly `0`, a few `1`/`2`. The allotment save never writes that field, so the database default fills it with `0` at insert time. The returns screen builds its pending list with `quantity_returned === null`, so the list is empty for every location, every day. This alone makes the page look broken.
 
-**b) The lookback windows don't match where the data actually is.** Today is Saturday 15 Aug. For a normal location the screen looks at the previous ISO week (3–7 Aug) — empty. For Storytel it looks at the previous weekday (14 Aug) — also empty. The real deliveries sit on 10 and 12 Aug, inside the current week. The rule "previous week" is right for a Monday pickup, but with no way to move the date the driver can never reach the dishes that are actually out there.
+**Changing the date cannot reveal the rows.** The date-range query can find allocations from the selected period, but every existing row is then removed by the `quantity_returned === null` filter because the backend stored `0` by default. This is why no products appear irrespective of the selected day or week; fixing the accounted-state check is the confirmed root fix.
 
 **Fix**
 
