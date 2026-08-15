@@ -11,7 +11,7 @@ Two separate causes, both verified against the live data:
 **Fix**
 
 - Stop using `quantity_returned IS NULL` as the "already counted" marker. Add a nullable `returned_at` timestamp column to `allocations` (purely additive, the customer-facing app ignores it) and set it when the driver saves. Pending = `returned_at IS NULL`. Rows counted before the column existed stay visible once, which is correct — nobody has actually logged them through the app.
-- Widen the lookback so nothing gets stranded: for a normal location, list everything delivered since its previous delivery day that is still unlogged — in practice last week's Monday and Wednesday drops, and on a Saturday/late run whatever is still open from this week. Storytel keeps the previous-delivery-day rule (Monday collects Friday) but also picks up anything older still unlogged, so a skipped day isn't lost.
+- Widen the lookback so nothing gets stranded: for a normal location, pickup happens every Monday and lists every dish delivered across the whole previous week (both the Monday and the Wednesday drop), not just the previous delivery, plus anything older still unlogged. Storytel keeps the previous-delivery-day rule (Monday collects Friday) but also picks up anything older still unlogged, so a skipped day isn't lost.
 - Keep the "All sold" one-tap save and per-dish input as they are.
 
 ## 2. Returns date picker
