@@ -60,3 +60,29 @@ export function storytelDeliversOn(
   if (!days || days.length === 0) return true;
   return days.some((d) => String(d).toLowerCase() === weekday.toLowerCase());
 }
+
+/**
+ * Which deliveries are up for pickup on `iso`.
+ *
+ * Storytel is collected the next delivery day (Monday collects Friday).
+ * Every other location is a weekly run: the whole previous week comes back at
+ * once. Both windows reach further back so anything never logged stays visible
+ * instead of getting stranded.
+ */
+export function returnsWindow(
+  location: Pick<Location, "name"> | undefined,
+  iso: string,
+): { start: string; end: string; mode: "storytel" | "weekly" } {
+  const back = (date: string, days: number) => {
+    const d = new Date(`${date}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - days);
+    return d.toISOString().slice(0, 10);
+  };
+
+  if (location && isStorytel(location)) {
+    const end = previousWeekday(iso);
+    return { start: back(end, 30), end, mode: "storytel" };
+  }
+  const { start, end } = previousWeekRange(iso);
+  return { start: back(start, 28), end, mode: "weekly" };
+}
