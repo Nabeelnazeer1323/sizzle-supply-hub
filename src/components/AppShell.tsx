@@ -72,25 +72,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-2">
-            {roles.map((r) => (
-              <Badge key={r} variant="secondary" className="hidden capitalize sm:inline-flex">
-                {r}
-              </Badge>
-            ))}
             <span className="hidden text-sm text-muted-foreground lg:inline">{user?.email}</span>
             <Button variant="ghost" size="icon" aria-label="Sign out" onClick={signOut}>
               <LogOut className="size-4" />
             </Button>
           </div>
         </div>
-        {!rolesConfigured && (
-          <div className="bg-destructive/10 px-4 py-2 text-center text-xs text-destructive">
-            Staff roles are not set up yet — everyone signed in has full access.{" "}
-            <Link to="/setup" className="underline">
-              Finish setup
-            </Link>
-          </div>
-        )}
+
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-4 md:py-6 print:max-w-none print:px-0 print:py-0">
