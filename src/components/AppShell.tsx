@@ -2,6 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ChefHat,
+  LayoutDashboard,
   ClipboardList,
   LogOut,
   PackageCheck,
@@ -24,6 +25,13 @@ const NAV: {
   icon: ComponentType<{ className?: string }>;
   roles: AppRole[];
 }[] = [
+  {
+    to: "/dashboard",
+    label: "Dashboard",
+    short: "Day",
+    icon: LayoutDashboard,
+    roles: ["admin", "kitchen", "packer"],
+  },
   {
     to: "/requirements",
     label: "Requirements",
@@ -68,7 +76,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="sticky top-0 z-30 border-b border-border bg-card/95 backdrop-blur print:hidden">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-2.5">
           <Link
-            to="/requirements"
+            to="/dashboard"
             search={defaultWeekSearch()}
             className="flex items-center gap-2 font-semibold tracking-tight"
           >
