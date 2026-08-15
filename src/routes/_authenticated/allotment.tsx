@@ -80,12 +80,9 @@ function AllotmentPage() {
   });
 
   const dayProducts = useMemo(() => allProductsQuery.data ?? [], [allProductsQuery.data]);
-  const categories = useMemo(() => categoriesOf(dayProducts), [dayProducts]);
-  const category: Category = (categories.includes(
-    normalizeCategory(search.category) as Category,
-  )
-    ? normalizeCategory(search.category)
-    : categories[0]) as Category;
+  const categories: Category[] = [DEFAULT_CATEGORY];
+  const category: Category = DEFAULT_CATEGORY;
+
 
   const productionQuery = useQuery({
     queryKey: ["production", date],
