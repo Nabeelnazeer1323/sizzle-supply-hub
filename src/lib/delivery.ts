@@ -72,17 +72,40 @@ export function storytelDeliversOn(
 export function returnsWindow(
   location: Pick<Location, "name"> | undefined,
   iso: string,
-): { start: string; end: string; mode: "storytel" | "weekly" } {
+): {
+  /** Wide query range — everything that could still be outstanding. */
+  start: string;
+  end: string;
+  /** The run that is actually due today. */
+  strictStart: string;
+  strictEnd: string;
+  mode: "storytel" | "weekly";
+} {
   const back = (date: string, days: number) => {
     const d = new Date(`${date}T00:00:00Z`);
     d.setUTCDate(d.getUTCDate() - days);
     return d.toISOString().slice(0, 10);
   };
 
+  const lastDelivery = previousWeekday(iso);
+
   if (location && isStorytel(location)) {
-    const end = previousWeekday(iso);
-    return { start: back(end, 30), end, mode: "storytel" };
+    return {
+      start: back(lastDelivery, 30),
+      end: lastDelivery,
+      strictStart: lastDelivery,
+      strictEnd: lastDelivery,
+      mode: "storytel",
+    };
   }
+
   const { start, end } = previousWeekRange(iso);
-  return { start: back(start, 28), end, mode: "weekly" };
+  return {
+    start: back(start, 28),
+    // Never ask for food that has not been delivered yet.
+    end: lastDelivery > end ? lastDelivery : end,
+    strictStart: start,
+    strictEnd: end,
+    mode: "weekly",
+  };
 }
