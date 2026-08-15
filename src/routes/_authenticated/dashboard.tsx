@@ -46,7 +46,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
 });
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: "bad" }) {
+function Stat({ label, value, tone }: { label: string; value: string; tone?: "bad" | undefined }) {
   return (
     <div className="rounded-lg border border-border bg-card p-3">
       <div className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</div>
