@@ -2,7 +2,6 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import {
   supabase,
@@ -11,11 +10,20 @@ import {
   type Location,
   type Product,
 } from "@/lib/supabase";
-import { formatDate, todayIso, shiftDate } from "@/lib/week";
+import { formatDate, todayIso } from "@/lib/week";
+import {
+  deliversOn,
+  isStorytel,
+  previousWeekRange,
+  previousWeekday,
+  storytelDeliversOn,
+  weekdayOf,
+} from "@/lib/delivery";
 import { QtyStepper } from "@/components/QtyStepper";
 import { SaveBar } from "@/components/SaveBar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -52,7 +60,9 @@ function ReturnsPage() {
   const navigate = Route.useNavigate();
   const queryClient = useQueryClient();
 
+  // The driver never picks a date — today is the pickup day.
   const date = search.date ?? todayIso();
+  const [showDate, setShowDate] = useState(false);
 
   const locationsQuery = useQuery({
     queryKey: ["locations"],
@@ -69,7 +79,6 @@ function ReturnsPage() {
 
   const locations = useMemo(() => locationsQuery.data ?? [], [locationsQuery.data]);
 
-  // Remember the location the driver used last so the flow is one tap on arrival.
   const [remembered, setRemembered] = useState<string | undefined>(undefined);
   useEffect(() => {
     const stored = window.localStorage.getItem(LAST_LOCATION_KEY);
@@ -79,6 +88,7 @@ function ReturnsPage() {
   const locationId =
     search.location ??
     (remembered && locations.some((l) => l.id === remembered) ? remembered : locations[0]?.id);
+  const location = locations.find((l) => l.id === locationId);
 
   function pickLocation(id: string) {
     window.localStorage.setItem(LAST_LOCATION_KEY, id);
@@ -86,34 +96,50 @@ function ReturnsPage() {
     void navigate({ search: (p: Search) => ({ ...p, location: id }) });
   }
 
-  function setDate(next: string) {
-    void navigate({ search: (p: Search) => ({ ...p, date: next }) });
-  }
+  /**
+   * Storytel picks up the previous delivery day's food (Monday collects Friday's).
+   * Everyone else is a weekly run: on their delivery day everything from the
+   * whole previous week comes back at once.
+   */
+  const window_ = useMemo(() => {
+    if (location && isStorytel(location)) {
+      const from = previousWeekday(date);
+      return { start: from, end: from, mode: "storytel" as const };
+    }
+    const { start, end } = previousWeekRange(date);
+    return { start, end, mode: "weekly" as const };
+  }, [location, date]);
 
   const allocationsQuery = useQuery({
-    queryKey: ["allocations", date, locationId],
+    queryKey: ["returns-allocations", locationId, window_.start, window_.end],
     enabled: Boolean(locationId),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("allocations")
         .select("*")
-        .eq("delivery_date", date)
-        .eq("location_id", locationId!);
+        .eq("location_id", locationId!)
+        .gte("delivery_date", window_.start)
+        .lte("delivery_date", window_.end)
+        .order("delivery_date");
       if (error) throw error;
       return data as AllocationRow[];
     },
   });
 
-  const allocations = useMemo(() => allocationsQuery.data ?? [], [allocationsQuery.data]);
+  // Anything already counted drops off the list, so a second visit never re-asks.
+  const pending = useMemo(
+    () => (allocationsQuery.data ?? []).filter((a) => a.quantity_returned === null),
+    [allocationsQuery.data],
+  );
 
   const productsQuery = useQuery({
-    queryKey: ["products-by-id", allocations.map((a) => a.product_id).sort().join(",")],
-    enabled: allocations.length > 0,
+    queryKey: ["products-by-id", pending.map((a) => a.product_id).sort().join(",")],
+    enabled: pending.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select(PRODUCT_COLUMNS)
-        .in("id", allocations.map((a) => a.product_id));
+        .in("id", pending.map((a) => a.product_id));
       if (error) throw error;
       return data as unknown as Product[];
     },
@@ -121,61 +147,76 @@ function ReturnsPage() {
 
   const products = productsQuery.data ?? [];
 
-  const [draft, setDraft] = useState<Record<string, number>>({});
+  const rows = useMemo(
+    () =>
+      pending
+        .map((a) => ({ ...a, product: products.find((p) => p.id === a.product_id) }))
+        // For Storytel, keep the dishes that really ran that day.
+        .filter(
+          (r) =>
+            window_.mode !== "storytel" ||
+            !r.product ||
+            storytelDeliversOn(r.product, weekdayOf(r.delivery_date)),
+        )
+        .sort(
+          (a, b) =>
+            a.delivery_date.localeCompare(b.delivery_date) ||
+            (a.product?.name ?? "").localeCompare(b.product?.name ?? ""),
+        ),
+    [pending, products, window_.mode],
+  );
 
+  const [draft, setDraft] = useState<Record<string, number>>({});
   useEffect(() => {
-    const next: Record<string, number> = {};
-    for (const a of allocations) next[a.id] = a.quantity_returned ?? 0;
-    setDraft(next);
-  }, [allocations]);
+    setDraft({});
+  }, [locationId, window_.start, window_.end]);
 
   const save = useMutation({
     mutationFn: async () => {
-      for (const a of allocations) {
-        const qty = draft[a.id] ?? 0;
-        if ((a.quantity_returned ?? 0) === qty) continue;
+      for (const r of rows) {
+        const qty = draft[r.id] ?? 0;
         const { error } = await supabase
           .from("allocations")
           .update({ quantity_returned: qty })
-          .eq("id", a.id);
+          .eq("id", r.id);
         if (error) throw error;
       }
     },
     onSuccess: () => {
       toast.success("Returns saved");
-      void queryClient.invalidateQueries({ queryKey: ["allocations"] });
+      void queryClient.invalidateQueries({ queryKey: ["returns-allocations"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const totals = allocations.reduce(
-    (acc, a) => {
-      acc.delivered += a.quantity_allocated;
-      acc.returned += draft[a.id] ?? 0;
+  const totals = rows.reduce(
+    (acc, r) => {
+      acc.delivered += r.quantity_allocated;
+      acc.returned += draft[r.id] ?? 0;
       return acc;
     },
     { delivered: 0, returned: 0 },
   );
-  const wastePct = totals.delivered
-    ? Math.round((totals.returned / totals.delivered) * 100)
-    : 0;
+  const wastePct = totals.delivered ? Math.round((totals.returned / totals.delivered) * 100) : 0;
+  const allZero = rows.every((r) => (draft[r.id] ?? 0) === 0);
 
-  const rows = allocations
-    .map((a) => ({ ...a, product: products.find((p) => p.id === a.product_id) }))
-    .sort((a, b) => (a.product?.name ?? "").localeCompare(b.product?.name ?? ""));
+  const scheduledToday = location ? deliversOn(location, weekdayOf(date)) : true;
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Returns pickup</h1>
         <p className="text-sm text-muted-foreground">
-          Tap what came back. Everything starts at zero — only touch the dishes with leftovers.
+          {window_.mode === "storytel"
+            ? `Food delivered ${formatDate(window_.start)}.`
+            : `Everything delivered ${formatDate(window_.start)} – ${formatDate(window_.end)}.`}{" "}
+          If nothing came back, tap All sold.
         </p>
       </div>
 
       <div className="space-y-2 rounded-xl border border-border bg-card p-3">
         <Select value={locationId ?? ""} onValueChange={pickLocation}>
-          <SelectTrigger className="h-12 w-full text-base">
+          <SelectTrigger className="h-14 w-full text-base">
             <SelectValue placeholder="Select location" />
           </SelectTrigger>
           <SelectContent>
@@ -187,33 +228,39 @@ function ReturnsPage() {
           </SelectContent>
         </Select>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-11 shrink-0"
-            aria-label="Previous day"
-            onClick={() => setDate(shiftDate(date, -1))}
-          >
-            <ChevronLeft className="size-5" />
-          </Button>
-          <div className="flex-1 text-center text-sm font-medium">{formatDate(date)}</div>
-          <Button
-            variant="outline"
-            size="icon"
-            className="size-11 shrink-0"
-            aria-label="Next day"
-            onClick={() => setDate(shiftDate(date, 1))}
-          >
-            <ChevronRight className="size-5" />
-          </Button>
+        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+          <span>Today · {formatDate(date)}</span>
+          {showDate ? (
+            <Input
+              type="date"
+              className="h-9 w-40"
+              value={date}
+              onChange={(e) =>
+                void navigate({ search: (p: Search) => ({ ...p, date: e.target.value }) })
+              }
+            />
+          ) : (
+            <button
+              type="button"
+              className="underline underline-offset-2"
+              onClick={() => setShowDate(true)}
+            >
+              change date
+            </button>
+          )}
         </div>
+        {!scheduledToday && (
+          <p className="text-xs text-muted-foreground">
+            {location?.name} has no delivery on {weekdayOf(date)} — showing anything still
+            outstanding.
+          </p>
+        )}
       </div>
 
       {rows.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Nothing was delivered to this location on {formatDate(date)}.
+            Nothing left to pick up here.
           </CardContent>
         </Card>
       ) : (
@@ -230,11 +277,9 @@ function ReturnsPage() {
                     <button
                       type="button"
                       className="mt-0.5 text-xs text-muted-foreground underline-offset-2 hover:underline"
-                      onClick={() =>
-                        setDraft((d) => ({ ...d, [r.id]: r.quantity_allocated }))
-                      }
+                      onClick={() => setDraft((d) => ({ ...d, [r.id]: r.quantity_allocated }))}
                     >
-                      sent {r.quantity_allocated} · all back
+                      {formatDate(r.delivery_date)} · sent {r.quantity_allocated} · all back
                     </button>
                   </div>
                   <QtyStepper
@@ -262,15 +307,17 @@ function ReturnsPage() {
           }
           onSave={() => save.mutate()}
           saving={save.isPending}
-          label="Save returns"
+          label={allZero ? "All sold" : "Save returns"}
           secondary={
-            <Button
-              variant="outline"
-              className="h-12"
-              onClick={() => setDraft(Object.fromEntries(allocations.map((a) => [a.id, 0])))}
-            >
-              All sold
-            </Button>
+            !allZero ? (
+              <Button
+                variant="outline"
+                className="h-12"
+                onClick={() => setDraft(Object.fromEntries(rows.map((r) => [r.id, 0])))}
+              >
+                Reset
+              </Button>
+            ) : undefined
           }
         />
       )}

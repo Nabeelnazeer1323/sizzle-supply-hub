@@ -15,12 +15,13 @@ import {
 } from "@/lib/supabase";
 import { currentWeek, isoWeekDate } from "@/lib/week";
 import {
-  categoriesOf,
-  categoryLabel,
+  DEFAULT_CATEGORY,
   normalizeCategory,
   productCategory,
   type Category,
 } from "@/lib/category";
+import { deliversOn } from "@/lib/delivery";
+
 import { computeAllotment, locationTotals } from "@/lib/allotment";
 import { WeekBar, normalizeDay } from "@/components/WeekBar";
 import { QtyStepper } from "@/components/QtyStepper";
@@ -80,12 +81,9 @@ function AllotmentPage() {
   });
 
   const dayProducts = useMemo(() => allProductsQuery.data ?? [], [allProductsQuery.data]);
-  const categories = useMemo(() => categoriesOf(dayProducts), [dayProducts]);
-  const category: Category = (categories.includes(
-    normalizeCategory(search.category) as Category,
-  )
-    ? normalizeCategory(search.category)
-    : categories[0]) as Category;
+  const categories: Category[] = [DEFAULT_CATEGORY];
+  const category: Category = DEFAULT_CATEGORY;
+
 
   const productionQuery = useQuery({
     queryKey: ["production", date],
@@ -152,6 +150,7 @@ function AllotmentPage() {
   const locations = useMemo(() => {
     const reqs = requirementsQuery.data ?? [];
     return (locationsQuery.data ?? [])
+      .filter((l) => deliversOn(l, day))
       .map((l) => ({
         ...l,
         required:
@@ -161,7 +160,8 @@ function AllotmentPage() {
         veganPct: l.vegan_target ?? 25,
       }))
       .filter((l) => l.required > 0);
-  }, [locationsQuery.data, requirementsQuery.data, category]);
+  }, [locationsQuery.data, requirementsQuery.data, category, day]);
+
 
   const [cells, setCells] = useState<Record<string, Record<string, number>>>({});
 
@@ -270,23 +270,8 @@ function AllotmentPage() {
 
       <WeekBar year={year} week={week} day={day} />
 
-      {categories.length > 1 && (
-        <div className="flex flex-wrap gap-1">
-          {categories.map((c) => (
-            <Button
-              key={c}
-              size="sm"
-              className="h-10"
-              variant={c === category ? "default" : "outline"}
-              onClick={() =>
-                void navigate({ search: (p: Search) => ({ ...p, category: c }) })
-              }
-            >
-              {categoryLabel(c)}
-            </Button>
-          ))}
-        </div>
-      )}
+
+
 
       {!ready ? (
         <Card>
