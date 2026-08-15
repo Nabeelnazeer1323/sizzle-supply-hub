@@ -70,8 +70,10 @@ function SetupPage() {
     <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="text-2xl font-semibold tracking-tight">Finish setup</h1>
       <p className="mt-2 text-sm text-muted-foreground">
-        Requirements need a <code>category</code> column, and staff roles need a table. Run the SQL
-        below once in your Supabase SQL editor and everything in the app will light up.
+        Requirements need a <code>category</code> column and returns need a{" "}
+        <code>returned_at</code> marker. Run the SQL below once in your Supabase SQL editor and
+        everything in the app will light up. Every signed-in user has full access.
+
       </p>
 
       <Card className="mt-6">
