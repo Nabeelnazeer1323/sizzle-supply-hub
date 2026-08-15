@@ -14,55 +14,30 @@ import type { ComponentType, ReactNode } from "react";
 
 import { supabase } from "@/lib/supabase";
 import { defaultWeekSearch } from "@/lib/week";
-import { useAuth, type AppRole } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 const NAV: {
   to: string;
   label: string;
   short: string;
   icon: ComponentType<{ className?: string }>;
-  roles: AppRole[];
 }[] = [
-  {
-    to: "/dashboard",
-    label: "Dashboard",
-    short: "Day",
-    icon: LayoutDashboard,
-    roles: ["admin", "kitchen", "packer"],
-  },
-  {
-    to: "/requirements",
-    label: "Requirements",
-    short: "Needs",
-    icon: ClipboardList,
-    roles: ["admin"],
-  },
-  {
-    to: "/production",
-    label: "Production",
-    short: "Cook",
-    icon: Utensils,
-    roles: ["admin", "kitchen"],
-  },
-  { to: "/allotment", label: "Allotment", short: "Split", icon: Split, roles: ["admin", "kitchen"] },
-  {
-    to: "/packing",
-    label: "Packing",
-    short: "Pack",
-    icon: PackageCheck,
-    roles: ["admin", "kitchen", "packer"],
-  },
-  { to: "/returns", label: "Returns", short: "Returns", icon: Undo2, roles: ["admin", "packer"] },
+  { to: "/dashboard", label: "Dashboard", short: "Day", icon: LayoutDashboard },
+  { to: "/requirements", label: "Requirements", short: "Needs", icon: ClipboardList },
+  { to: "/production", label: "Production", short: "Cook", icon: Utensils },
+  { to: "/allotment", label: "Allotment", short: "Split", icon: Split },
+  { to: "/packing", label: "Packing", short: "Pack", icon: PackageCheck },
+  { to: "/returns", label: "Returns", short: "Returns", icon: Undo2 },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, roles, rolesConfigured, hasRole } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const items = NAV.filter((item) => hasRole(...item.roles));
+  const items = NAV;
+
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -97,25 +72,13 @@ export function AppShell({ children }: { children: ReactNode }) {
             ))}
           </nav>
           <div className="ml-auto flex items-center gap-2">
-            {roles.map((r) => (
-              <Badge key={r} variant="secondary" className="hidden capitalize sm:inline-flex">
-                {r}
-              </Badge>
-            ))}
             <span className="hidden text-sm text-muted-foreground lg:inline">{user?.email}</span>
             <Button variant="ghost" size="icon" aria-label="Sign out" onClick={signOut}>
               <LogOut className="size-4" />
             </Button>
           </div>
         </div>
-        {!rolesConfigured && (
-          <div className="bg-destructive/10 px-4 py-2 text-center text-xs text-destructive">
-            Staff roles are not set up yet — everyone signed in has full access.{" "}
-            <Link to="/setup" className="underline">
-              Finish setup
-            </Link>
-          </div>
-        )}
+
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-4 md:py-6 print:max-w-none print:px-0 print:py-0">

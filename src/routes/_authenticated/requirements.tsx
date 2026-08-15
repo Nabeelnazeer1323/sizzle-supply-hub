@@ -10,8 +10,8 @@ import { DEFAULT_CATEGORY, normalizeCategory } from "@/lib/category";
 import { WeekBar, normalizeDay } from "@/components/WeekBar";
 import { QtyStepper } from "@/components/QtyStepper";
 import { SaveBar } from "@/components/SaveBar";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+
+
 
 type Search = { year: number; week: number; day: string };
 
@@ -182,46 +182,38 @@ function RequirementsPage() {
 
       <WeekBar year={year} week={week} day={day} />
 
-      <div className="space-y-3">
+      <div className="divide-y divide-border overflow-hidden rounded-lg border border-border">
         {locations.map((loc) => {
           const entry = draft[loc.id] ?? { vegan: "25", qty: "" };
           const total = Number(entry.qty) || 0;
           return (
-            <Card key={loc.id}>
-              <CardHeader className="pb-3">
-                <CardTitle className="flex flex-wrap items-baseline justify-between gap-2 text-base">
-                  <span>{loc.name}</span>
-                  <span className="text-xs font-normal capitalize text-muted-foreground">
-                    {(loc.delivery_days ?? []).join(", ")}
-                  </span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between gap-3">
-                  <span className="text-sm font-medium">Lunches</span>
-                  <QtyStepper
-                    ariaLabel={`${loc.name} lunches required`}
-                    value={total}
-                    onChange={(v) =>
-                      setDraft((d) => ({
-                        ...d,
-                        [loc.id]: { ...entry, qty: v ? String(v) : "" },
-                      }))
-                    }
-                  />
-                </div>
-              </CardContent>
-            </Card>
+            <div key={loc.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+              <div className="min-w-0 flex-1 sm:flex sm:items-baseline sm:gap-2">
+                <span className="block truncate text-sm font-medium">{loc.name}</span>
+                <span className="block text-xs capitalize text-muted-foreground">
+                  {(loc.delivery_days ?? []).join(", ")}
+                </span>
+              </div>
+              <QtyStepper
+                ariaLabel={`${loc.name} lunches required`}
+                value={total}
+                onChange={(v) =>
+                  setDraft((d) => ({
+                    ...d,
+                    [loc.id]: { ...entry, qty: v ? String(v) : "" },
+                  }))
+                }
+              />
+            </div>
           );
         })}
         {locations.length === 0 && (
-          <Card>
-            <CardContent className="py-10 text-center text-sm text-muted-foreground">
-              No deliveries scheduled on {day}.
-            </CardContent>
-          </Card>
+          <div className="py-10 text-center text-sm text-muted-foreground">
+            No deliveries scheduled on {day}.
+          </div>
         )}
       </div>
+
 
       {locations.length > 0 && (
         <SaveBar
