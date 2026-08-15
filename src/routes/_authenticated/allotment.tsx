@@ -150,6 +150,7 @@ function AllotmentPage() {
   const locations = useMemo(() => {
     const reqs = requirementsQuery.data ?? [];
     return (locationsQuery.data ?? [])
+      .filter((l) => deliversOn(l, day))
       .map((l) => ({
         ...l,
         required:
@@ -159,7 +160,8 @@ function AllotmentPage() {
         veganPct: l.vegan_target ?? 25,
       }))
       .filter((l) => l.required > 0);
-  }, [locationsQuery.data, requirementsQuery.data, category]);
+  }, [locationsQuery.data, requirementsQuery.data, category, day]);
+
 
   const [cells, setCells] = useState<Record<string, Record<string, number>>>({});
 
