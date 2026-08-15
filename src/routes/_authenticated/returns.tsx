@@ -10,20 +10,13 @@ import {
   type Location,
   type Product,
 } from "@/lib/supabase";
-import { formatDate, todayIso } from "@/lib/week";
-import {
-  deliversOn,
-  isStorytel,
-  previousWeekRange,
-  previousWeekday,
-  storytelDeliversOn,
-  weekdayOf,
-} from "@/lib/delivery";
+import { currentWeek, formatDate, isoWeek, isoWeekDate } from "@/lib/week";
+import { returnsWindow, storytelDeliversOn, weekdayOf } from "@/lib/delivery";
+import { WeekBar, normalizeDay } from "@/components/WeekBar";
 import { QtyStepper } from "@/components/QtyStepper";
 import { SaveBar } from "@/components/SaveBar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -32,15 +25,31 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
-type Search = { date: string | undefined; location: string | undefined };
+type Search = { year: number; week: number; day: string; location: string | undefined };
 
 const LAST_LOCATION_KEY = "sizzle:last-returns-location";
 
+/** Today's week/weekday, so the driver never has to pick a date. */
+function todayDefaults() {
+  const now = new Date();
+  const { year, week } = isoWeek(now);
+  const day = weekdayOf(new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 10));
+  return { year, week, day };
+}
+
 export const Route = createFileRoute("/_authenticated/returns")({
-  validateSearch: (search: Record<string, unknown>): Search => ({
-    date: typeof search['date'] === "string" ? search['date'] : undefined,
-    location: typeof search['location'] === "string" ? search['location'] : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): Search => {
+    const today = todayDefaults();
+    const fallback = currentWeek();
+    return {
+      year: Number(search['year']) || today.year || fallback.year,
+      week: Number(search['week']) || today.week || fallback.week,
+      day: typeof search['day'] === "string" ? search['day'] : today.day,
+      location: typeof search['location'] === "string" ? search['location'] : undefined,
+    };
+  },
   head: () => ({
     meta: [
       { title: "Returns — Sizzle Ops" },
@@ -56,13 +65,12 @@ export const Route = createFileRoute("/_authenticated/returns")({
 });
 
 function ReturnsPage() {
-  const search = Route.useSearch();
+  const { year, week, day: rawDay, location: locationParam } = Route.useSearch();
   const navigate = Route.useNavigate();
   const queryClient = useQueryClient();
 
-  // The driver never picks a date — today is the pickup day.
-  const date = search.date ?? todayIso();
-  const [showDate, setShowDate] = useState(false);
+  const day = normalizeDay(rawDay);
+  const date = isoWeekDate(year, week, day);
 
   const locationsQuery = useQuery({
     queryKey: ["locations"],
@@ -86,7 +94,7 @@ function ReturnsPage() {
   }, []);
 
   const locationId =
-    search.location ??
+    locationParam ??
     (remembered && locations.some((l) => l.id === remembered) ? remembered : locations[0]?.id);
   const location = locations.find((l) => l.id === locationId);
 
@@ -96,19 +104,7 @@ function ReturnsPage() {
     void navigate({ search: (p: Search) => ({ ...p, location: id }) });
   }
 
-  /**
-   * Storytel picks up the previous delivery day's food (Monday collects Friday's).
-   * Everyone else is a weekly run: on their delivery day everything from the
-   * whole previous week comes back at once.
-   */
-  const window_ = useMemo(() => {
-    if (location && isStorytel(location)) {
-      const from = previousWeekday(date);
-      return { start: from, end: from, mode: "storytel" as const };
-    }
-    const { start, end } = previousWeekRange(date);
-    return { start, end, mode: "weekly" as const };
-  }, [location, date]);
+  const window_ = useMemo(() => returnsWindow(location, date), [location, date]);
 
   const allocationsQuery = useQuery({
     queryKey: ["returns-allocations", locationId, window_.start, window_.end],
@@ -126,14 +122,20 @@ function ReturnsPage() {
     },
   });
 
-  // Anything already counted drops off the list, so a second visit never re-asks.
+  const allocations = useMemo(() => allocationsQuery.data ?? [], [allocationsQuery.data]);
+
+  // `returned_at` is the real "already counted" marker. Until that column
+  // exists, every delivered row is still pending — quantity_returned defaults
+  // to 0 in the database, so it can never tell us anything.
+  const hasReturnedAt = allocations.some((a) => a.returned_at !== undefined);
   const pending = useMemo(
-    () => (allocationsQuery.data ?? []).filter((a) => a.quantity_returned === null),
-    [allocationsQuery.data],
+    () => (hasReturnedAt ? allocations.filter((a) => !a.returned_at) : allocations),
+    [allocations, hasReturnedAt],
   );
 
+  const productIds = pending.map((a) => a.product_id).sort().join(",");
   const productsQuery = useQuery({
-    queryKey: ["products-by-id", pending.map((a) => a.product_id).sort().join(",")],
+    queryKey: ["products-by-id", productIds],
     enabled: pending.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
@@ -145,7 +147,7 @@ function ReturnsPage() {
     },
   });
 
-  const products = productsQuery.data ?? [];
+  const products = useMemo(() => productsQuery.data ?? [], [productsQuery.data]);
 
   const rows = useMemo(
     () =>
@@ -173,13 +175,24 @@ function ReturnsPage() {
 
   const save = useMutation({
     mutationFn: async () => {
+      const stamp = new Date().toISOString();
       for (const r of rows) {
         const qty = draft[r.id] ?? 0;
         const { error } = await supabase
           .from("allocations")
-          .update({ quantity_returned: qty })
+          .update({ quantity_returned: qty, returned_at: stamp })
           .eq("id", r.id);
-        if (error) throw error;
+        if (error) {
+          if (error.message.toLowerCase().includes("returned_at")) {
+            const retry = await supabase
+              .from("allocations")
+              .update({ quantity_returned: qty })
+              .eq("id", r.id);
+            if (retry.error) throw retry.error;
+          } else {
+            throw error;
+          }
+        }
       }
     },
     onSuccess: () => {
@@ -200,21 +213,21 @@ function ReturnsPage() {
   const wastePct = totals.delivered ? Math.round((totals.returned / totals.delivered) * 100) : 0;
   const allZero = rows.every((r) => (draft[r.id] ?? 0) === 0);
 
-  const scheduledToday = location ? deliversOn(location, weekdayOf(date)) : true;
-
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Returns pickup</h1>
         <p className="text-sm text-muted-foreground">
           {window_.mode === "storytel"
-            ? `Food delivered ${formatDate(window_.start)}.`
-            : `Everything delivered ${formatDate(window_.start)} – ${formatDate(window_.end)}.`}{" "}
+            ? `Food delivered ${formatDate(window_.end)} (plus anything still open).`
+            : `Everything delivered last week, up to ${formatDate(window_.end)}.`}{" "}
           If nothing came back, tap All sold.
         </p>
       </div>
 
-      <div className="space-y-2 rounded-xl border border-border bg-card p-3">
+      <WeekBar year={year} week={week} day={day} label="Pickup week" />
+
+      <div className="rounded-xl border border-border bg-card p-3">
         <Select value={locationId ?? ""} onValueChange={pickLocation}>
           <SelectTrigger className="h-14 w-full text-base">
             <SelectValue placeholder="Select location" />
@@ -227,34 +240,6 @@ function ReturnsPage() {
             ))}
           </SelectContent>
         </Select>
-
-        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
-          <span>Today · {formatDate(date)}</span>
-          {showDate ? (
-            <Input
-              type="date"
-              className="h-9 w-40"
-              value={date}
-              onChange={(e) =>
-                void navigate({ search: (p: Search) => ({ ...p, date: e.target.value }) })
-              }
-            />
-          ) : (
-            <button
-              type="button"
-              className="underline underline-offset-2"
-              onClick={() => setShowDate(true)}
-            >
-              change date
-            </button>
-          )}
-        </div>
-        {!scheduledToday && (
-          <p className="text-xs text-muted-foreground">
-            {location?.name} has no delivery on {weekdayOf(date)} — showing anything still
-            outstanding.
-          </p>
-        )}
       </div>
 
       {rows.length === 0 ? (
