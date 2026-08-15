@@ -33,9 +33,12 @@ const LAST_LOCATION_KEY = "sizzle:last-returns-location";
 function todayDefaults() {
   const now = new Date();
   const { year, week } = isoWeek(now);
-  const day = weekdayOf(new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000)
     .toISOString()
-    .slice(0, 10));
+    .slice(0, 10);
+  const weekday = weekdayOf(local);
+  // Weekend runs belong to the Friday round.
+  const day = weekday === "Saturday" || weekday === "Sunday" ? "Friday" : weekday;
   return { year, week, day };
 }
 
