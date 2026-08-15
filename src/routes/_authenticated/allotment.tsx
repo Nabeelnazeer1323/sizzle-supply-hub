@@ -268,23 +268,8 @@ function AllotmentPage() {
 
       <WeekBar year={year} week={week} day={day} />
 
-      {categories.length > 1 && (
-        <div className="flex flex-wrap gap-1">
-          {categories.map((c) => (
-            <Button
-              key={c}
-              size="sm"
-              className="h-10"
-              variant={c === category ? "default" : "outline"}
-              onClick={() =>
-                void navigate({ search: (p: Search) => ({ ...p, category: c }) })
-              }
-            >
-              {categoryLabel(c)}
-            </Button>
-          ))}
-        </div>
-      )}
+
+
 
       {!ready ? (
         <Card>
