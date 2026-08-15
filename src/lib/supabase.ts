@@ -36,7 +36,10 @@ export type Product = {
   is_snack: boolean | null;
   /** Product category tags, e.g. ["FOOD"], ["SNACK"], ["BREAKFAST"], ["DRINK"]. */
   types: string[] | null;
+  /** Weekdays this dish is part of Storytel's daily run. */
+  storytel_delivery_days: string[] | null;
   image_url: string | null;
+
 };
 
 /** Keyed by production_date — week/year are never written by this app. */
