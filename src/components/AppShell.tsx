@@ -14,55 +14,30 @@ import type { ComponentType, ReactNode } from "react";
 
 import { supabase } from "@/lib/supabase";
 import { defaultWeekSearch } from "@/lib/week";
-import { useAuth, type AppRole } from "@/hooks/useAuth";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 const NAV: {
   to: string;
   label: string;
   short: string;
   icon: ComponentType<{ className?: string }>;
-  roles: AppRole[];
 }[] = [
-  {
-    to: "/dashboard",
-    label: "Dashboard",
-    short: "Day",
-    icon: LayoutDashboard,
-    roles: ["admin", "kitchen", "packer"],
-  },
-  {
-    to: "/requirements",
-    label: "Requirements",
-    short: "Needs",
-    icon: ClipboardList,
-    roles: ["admin"],
-  },
-  {
-    to: "/production",
-    label: "Production",
-    short: "Cook",
-    icon: Utensils,
-    roles: ["admin", "kitchen"],
-  },
-  { to: "/allotment", label: "Allotment", short: "Split", icon: Split, roles: ["admin", "kitchen"] },
-  {
-    to: "/packing",
-    label: "Packing",
-    short: "Pack",
-    icon: PackageCheck,
-    roles: ["admin", "kitchen", "packer"],
-  },
-  { to: "/returns", label: "Returns", short: "Returns", icon: Undo2, roles: ["admin", "packer"] },
+  { to: "/dashboard", label: "Dashboard", short: "Day", icon: LayoutDashboard },
+  { to: "/requirements", label: "Requirements", short: "Needs", icon: ClipboardList },
+  { to: "/production", label: "Production", short: "Cook", icon: Utensils },
+  { to: "/allotment", label: "Allotment", short: "Split", icon: Split },
+  { to: "/packing", label: "Packing", short: "Pack", icon: PackageCheck },
+  { to: "/returns", label: "Returns", short: "Returns", icon: Undo2 },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, roles, rolesConfigured, hasRole } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  const items = NAV.filter((item) => hasRole(...item.roles));
+  const items = NAV;
+
 
   async function signOut() {
     await queryClient.cancelQueries();
