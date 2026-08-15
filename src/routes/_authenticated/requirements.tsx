@@ -186,7 +186,6 @@ function RequirementsPage() {
         {locations.map((loc) => {
           const entry = draft[loc.id] ?? { vegan: "25", qty: "" };
           const total = Number(entry.qty) || 0;
-          const vegan = Math.round((total * (Number(entry.vegan) || 0)) / 100);
           return (
             <Card key={loc.id}>
               <CardHeader className="pb-3">
@@ -197,7 +196,7 @@ function RequirementsPage() {
                   </span>
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-sm font-medium">Lunches</span>
                   <QtyStepper
@@ -210,27 +209,6 @@ function RequirementsPage() {
                       }))
                     }
                   />
-                </div>
-                <div className="flex items-center justify-between gap-3 border-t border-border pt-3">
-                  <span className="text-sm font-medium">Vegan %</span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-muted-foreground tabular-nums">
-                      {vegan} of {total}
-                    </span>
-                    <Input
-                      aria-label={`${loc.name} vegan percent`}
-                      inputMode="numeric"
-                      className="h-11 w-20 text-center text-base tabular-nums"
-                      value={entry.vegan}
-                      onFocus={(e) => e.currentTarget.select()}
-                      onChange={(e) =>
-                        setDraft((d) => ({
-                          ...d,
-                          [loc.id]: { ...entry, vegan: e.target.value.replace(/[^0-9]/g, "") },
-                        }))
-                      }
-                    />
-                  </div>
                 </div>
               </CardContent>
             </Card>

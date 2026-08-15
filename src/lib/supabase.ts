@@ -67,4 +67,6 @@ export type AllocationRow = {
   delivery_date: string;
   quantity_allocated: number;
   quantity_returned: number | null;
+  /** Set when the driver logs the pickup — the real "counted" marker. */
+  returned_at?: string | null;
 };

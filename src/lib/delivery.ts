@@ -60,3 +60,52 @@ export function storytelDeliversOn(
   if (!days || days.length === 0) return true;
   return days.some((d) => String(d).toLowerCase() === weekday.toLowerCase());
 }
+
+/**
+ * Which deliveries are up for pickup on `iso`.
+ *
+ * Storytel is collected the next delivery day (Monday collects Friday).
+ * Every other location is a weekly run: the whole previous week comes back at
+ * once. Both windows reach further back so anything never logged stays visible
+ * instead of getting stranded.
+ */
+export function returnsWindow(
+  location: Pick<Location, "name"> | undefined,
+  iso: string,
+): {
+  /** Wide query range — everything that could still be outstanding. */
+  start: string;
+  end: string;
+  /** The run that is actually due today. */
+  strictStart: string;
+  strictEnd: string;
+  mode: "storytel" | "weekly";
+} {
+  const back = (date: string, days: number) => {
+    const d = new Date(`${date}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - days);
+    return d.toISOString().slice(0, 10);
+  };
+
+  const lastDelivery = previousWeekday(iso);
+
+  if (location && isStorytel(location)) {
+    return {
+      start: back(lastDelivery, 30),
+      end: lastDelivery,
+      strictStart: lastDelivery,
+      strictEnd: lastDelivery,
+      mode: "storytel",
+    };
+  }
+
+  const { start, end } = previousWeekRange(iso);
+  return {
+    start: back(start, 28),
+    // Never ask for food that has not been delivered yet.
+    end: lastDelivery > end ? lastDelivery : end,
+    strictStart: start,
+    strictEnd: end,
+    mode: "weekly",
+  };
+}

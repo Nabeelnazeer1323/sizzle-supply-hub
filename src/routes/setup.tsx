@@ -10,7 +10,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 const SQL = `-- 1. Requirements: replace the is_snack flag with the product category
 alter table public.requirements add column if not exists category text not null default 'FOOD';
 
--- 2. Roles: admin / kitchen / packer
+-- 2. Returns: mark when a pickup was actually logged
+alter table public.allocations add column if not exists returned_at timestamptz;
+
+-- 3. Roles: admin / kitchen / packer
 do $$ begin
   create type public.app_role as enum ('admin', 'kitchen', 'packer');
 exception when duplicate_object then null; end $$;
@@ -40,12 +43,12 @@ create policy "Admins manage roles" on public.user_roles
   using (public.has_role(auth.uid(), 'admin'))
   with check (public.has_role(auth.uid(), 'admin'));
 
--- 3. Make yourself an admin (replace the email)
+-- 4. Make yourself an admin (replace the email)
 insert into public.user_roles (user_id, role)
 select id, 'admin' from auth.users where email = 'you@sizzle.example'
 on conflict do nothing;
 
--- 4. Allow signed-in staff to work with the existing operational tables
+-- 5. Allow signed-in staff to work with the existing operational tables
 do $$
 declare t text;
 begin
@@ -118,7 +121,7 @@ function SetupPage() {
             >
               the SQL editor
             </a>
-            , paste, and run. Replace the placeholder email in step 3 with your own.
+            , paste, and run. Replace the placeholder email in step 4 with your own.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
