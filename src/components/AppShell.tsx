@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   ChefHat,
   LayoutDashboard,
+  Landmark,
   ClipboardList,
   LogOut,
   PackageCheck,
@@ -29,6 +30,7 @@ const NAV: {
   { to: "/allotment", label: "Allotment", short: "Split", icon: Split },
   { to: "/packing", label: "Packing", short: "Pack", icon: PackageCheck },
   { to: "/returns", label: "Returns", short: "Returns", icon: Undo2 },
+  { to: "/order-import", label: "Order Import", short: "Import", icon: Landmark },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -37,7 +39,6 @@ export function AppShell({ children }: { children: ReactNode }) {
   const queryClient = useQueryClient();
 
   const items = NAV;
-
 
   async function signOut() {
     await queryClient.cancelQueries();
@@ -78,7 +79,6 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Button>
           </div>
         </div>
-
       </header>
 
       <main className="mx-auto max-w-7xl px-4 py-4 md:py-6 print:max-w-none print:px-0 print:py-0">
