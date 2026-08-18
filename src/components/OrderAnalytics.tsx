@@ -1,12 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
 import { stockholmLocalToIso } from "@/lib/order-import";
 import { supabase } from "@/lib/supabase";
-import { isoWeekDate, shiftDate } from "@/lib/week";
+import { shiftDate } from "@/lib/week";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   ChartContainer,
@@ -17,7 +16,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 
-type Period = "day" | "week" | "month";
+export type AnalyticsPeriod = "day" | "week" | "month" | "year";
 
 type AnalyticsOrder = {
   id: string;
@@ -45,9 +44,23 @@ const categoryConfig = {
 } satisfies ChartConfig;
 const money = new Intl.NumberFormat("sv-SE", { style: "currency", currency: "SEK" });
 
-export function OrderAnalytics({ date, year, week }: { date: string; year: number; week: number }) {
-  const [period, setPeriod] = useState<Period>("week");
-  const range = useMemo(() => analyticsRange(period, date, year, week), [period, date, year, week]);
+export function OrderAnalytics({
+  period,
+  anchorDate,
+  fromYear,
+  toYear,
+  yearToDate,
+}: {
+  period: AnalyticsPeriod;
+  anchorDate: string;
+  fromYear: number;
+  toYear: number;
+  yearToDate: boolean;
+}) {
+  const range = useMemo(
+    () => analyticsRange(period, anchorDate, fromYear, toYear, yearToDate),
+    [period, anchorDate, fromYear, toYear, yearToDate],
+  );
   const ordersQuery = useQuery({
     queryKey: ["order-analytics", period, range.start, range.end],
     queryFn: async () => {
@@ -126,23 +139,10 @@ export function OrderAnalytics({ date, year, week }: { date: string; year: numbe
 
   return (
     <section className="space-y-3">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+      <div>
         <div>
           <h2 className="text-lg font-semibold tracking-tight">Sales analytics</h2>
           <p className="text-sm text-muted-foreground">{range.label}</p>
-        </div>
-        <div className="flex rounded-md border border-border p-1">
-          {(["day", "week", "month"] as const).map((value) => (
-            <Button
-              key={value}
-              size="sm"
-              variant={period === value ? "secondary" : "ghost"}
-              className="capitalize"
-              onClick={() => setPeriod(value)}
-            >
-              {value}
-            </Button>
-          ))}
         </div>
       </div>
 
@@ -306,20 +306,37 @@ function EmptySales() {
   );
 }
 
-function analyticsRange(period: Period, date: string, year: number, week: number) {
+function analyticsRange(
+  period: AnalyticsPeriod,
+  date: string,
+  fromYear: number,
+  toYear: number,
+  yearToDate: boolean,
+) {
   let startDate: string;
   let endDate: string;
   if (period === "day") {
     startDate = date;
     endDate = shiftDate(date, 1);
   } else if (period === "week") {
-    startDate = isoWeekDate(year, week, "Monday");
+    const anchor = new Date(`${date}T00:00:00Z`);
+    const weekday = anchor.getUTCDay() || 7;
+    startDate = shiftDate(date, 1 - weekday);
     endDate = shiftDate(startDate, 7);
-  } else {
+  } else if (period === "month") {
     startDate = `${date.slice(0, 7)}-01`;
     const nextMonth = new Date(`${startDate}T00:00:00Z`);
     nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
     endDate = nextMonth.toISOString().slice(0, 10);
+  } else {
+    startDate = `${fromYear}-01-01`;
+    if (yearToDate) {
+      const today = new Date();
+      const monthDay = `${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      endDate = shiftDate(`${toYear}-${monthDay}`, 1);
+    } else {
+      endDate = `${toYear + 1}-01-01`;
+    }
   }
   return {
     start: stockholmLocalToIso(startDate, "00:00:00"),

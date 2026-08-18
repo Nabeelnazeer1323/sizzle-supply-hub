@@ -17,12 +17,14 @@ export function WeekBar({
   day,
   showDay = true,
   label,
+  disabled = false,
 }: {
   year: number;
   week: number;
   day: Weekday;
   showDay?: boolean;
   label?: string;
+  disabled?: boolean;
 }) {
   const navigate = useNavigate();
   const total = weeksInYear(year);
@@ -44,13 +46,17 @@ export function WeekBar({
   }
 
   return (
-    <div className="space-y-3 rounded-xl border border-border bg-card p-3 print:hidden">
+    <div
+      className={`space-y-3 rounded-xl border border-border bg-card p-3 print:hidden ${disabled ? "opacity-50" : ""}`}
+      aria-disabled={disabled}
+    >
       <div className="flex items-center gap-2">
         <Button
           variant="outline"
           size="icon"
           className="size-10 shrink-0"
           aria-label="Previous week"
+          disabled={disabled}
           onClick={() => setWeek(-1)}
         >
           <ChevronLeft className="size-5" />
@@ -68,6 +74,7 @@ export function WeekBar({
           size="icon"
           className="size-10 shrink-0"
           aria-label="Next week"
+          disabled={disabled}
           onClick={() => setWeek(1)}
         >
           <ChevronRight className="size-5" />
@@ -83,6 +90,7 @@ export function WeekBar({
                 size="sm"
                 className="h-10"
                 variant={d === day ? "default" : "outline"}
+                disabled={disabled}
                 onClick={() =>
                   void navigate({
                     to: ".",

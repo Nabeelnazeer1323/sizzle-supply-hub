@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import {
   supabase,
@@ -14,9 +14,12 @@ import {
 import { currentWeek, formatDate, isoWeekDate } from "@/lib/week";
 import { deliversOn } from "@/lib/delivery";
 import { WeekBar, normalizeDay } from "@/components/WeekBar";
-import { OrderAnalytics } from "@/components/OrderAnalytics";
+import { OrderAnalytics, type AnalyticsPeriod } from "@/components/OrderAnalytics";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 
 type Search = { year: number; week: number; day: string };
 
@@ -68,6 +71,22 @@ function DashboardPage() {
   const { year, week, day: rawDay } = Route.useSearch();
   const day = normalizeDay(rawDay);
   const date = isoWeekDate(year, week, day);
+  const [analyticsPeriod, setAnalyticsPeriod] = useState<AnalyticsPeriod>("week");
+  const [analyticsAnchorDate, setAnalyticsAnchorDate] = useState(date);
+  const [analyticsFromYear, setAnalyticsFromYear] = useState(year);
+  const [analyticsToYear, setAnalyticsToYear] = useState(year);
+  const [analyticsYearToDate, setAnalyticsYearToDate] = useState(true);
+  const analyticsDate =
+    analyticsPeriod === "day" || analyticsPeriod === "week" ? date : analyticsAnchorDate;
+
+  function changeAnalyticsPeriod(nextPeriod: AnalyticsPeriod) {
+    if (nextPeriod === "month") setAnalyticsAnchorDate(date);
+    if (nextPeriod === "year") {
+      setAnalyticsFromYear(year);
+      setAnalyticsToYear(year);
+    }
+    setAnalyticsPeriod(nextPeriod);
+  }
 
   const locationsQuery = useQuery({
     queryKey: ["locations"],
@@ -173,110 +192,205 @@ function DashboardPage() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Day overview</h1>
+        <h1 className="text-xl font-semibold tracking-tight md:text-2xl">
+          {analyticsPeriod === "day" ? "Day overview" : "Dashboard"}
+        </h1>
         <p className="text-sm text-muted-foreground">
-          Everything recorded for {formatDate(date)}. Read-only — nothing here can be edited.
+          {analyticsPeriod === "day"
+            ? `Everything recorded for ${formatDate(date)}. Read-only — nothing here can be edited.`
+            : "Sales performance by location, product and product type."}
         </p>
       </div>
 
-      <WeekBar year={year} week={week} day={day} />
+      <Card className="print:hidden">
+        <CardContent className="space-y-4 p-4">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {(["day", "week", "month", "year"] as const).map((value) => (
+              <Button
+                key={value}
+                className="h-11"
+                variant={analyticsPeriod === value ? "default" : "outline"}
+                onClick={() => changeAnalyticsPeriod(value)}
+              >
+                {value.charAt(0).toUpperCase() + value.slice(1)}
+              </Button>
+            ))}
+          </div>
 
-      <OrderAnalytics date={date} year={year} week={week} />
+          {analyticsPeriod === "month" ? (
+            <div>
+              <label className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Month
+              </label>
+              <Input
+                type="month"
+                aria-label="Sales analytics month"
+                className="h-12 w-full text-base sm:max-w-sm"
+                value={analyticsAnchorDate.slice(0, 7)}
+                onChange={(event) => {
+                  if (event.target.value) setAnalyticsAnchorDate(`${event.target.value}-01`);
+                }}
+              />
+            </div>
+          ) : null}
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-        <Stat label="Required" value={String(totals.required)} />
-        <Stat label="Produced" value={String(totals.produced)} />
-        <Stat label="Delivered" value={String(totals.delivered)} />
-        <Stat label="Returned" value={String(totals.returned)} />
-        <Stat label="Waste" value={`${wastePct}%`} tone={wastePct > 15 ? "bad" : undefined} />
-      </div>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Requirements</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {scheduled.length === 0 ? (
-            <Empty>No locations take a delivery on this day.</Empty>
-          ) : (
-            <ul className="divide-y divide-border text-sm">
-              {scheduled.map((loc) => {
-                const req = requirements.find((r) => r.location_id === loc.id);
-                return (
-                  <li key={loc.id} className="flex items-center justify-between py-2">
-                    <span>{loc.name}</span>
-                    <span className="tabular-nums text-muted-foreground">
-                      {req ? `${req.total_required} lunches` : "not set"}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+          {analyticsPeriod === "year" ? (
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:max-w-2xl sm:grid-cols-2">
+                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  From year
+                  <Input
+                    type="number"
+                    aria-label="From year"
+                    className="mt-1.5 h-12 text-base"
+                    min="2000"
+                    max={analyticsToYear}
+                    value={analyticsFromYear}
+                    onChange={(event) => setAnalyticsFromYear(Number(event.target.value))}
+                  />
+                </label>
+                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  To year
+                  <Input
+                    type="number"
+                    aria-label="To year"
+                    className="mt-1.5 h-12 text-base"
+                    min={analyticsFromYear}
+                    max="2100"
+                    value={analyticsToYear}
+                    onChange={(event) => setAnalyticsToYear(Number(event.target.value))}
+                  />
+                </label>
+              </div>
+              <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+                <Checkbox
+                  checked={analyticsYearToDate}
+                  onCheckedChange={(checked) => setAnalyticsYearToDate(checked === true)}
+                />
+                Year to date
+              </label>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Production</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {production.length === 0 ? (
-            <Empty>Nothing was registered as produced on this day.</Empty>
-          ) : (
-            <ul className="divide-y divide-border text-sm">
-              {production.map((p) => (
-                <li key={p.id} className="flex items-center justify-between gap-3 py-2">
-                  <span className="flex min-w-0 items-center gap-2">
-                    <span className="truncate">{productName(p.product_id)}</span>
-                    {isVegan(p.product_id) && (
-                      <Badge variant="secondary" className="shrink-0">
-                        Vegan
-                      </Badge>
-                    )}
-                  </span>
-                  <span className="tabular-nums text-muted-foreground">{p.quantity_produced}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
+      <WeekBar
+        year={year}
+        week={week}
+        day={day}
+        showDay={analyticsPeriod === "day"}
+        label={analyticsPeriod === "day" ? "Day" : "Week"}
+        disabled={analyticsPeriod === "month" || analyticsPeriod === "year"}
+      />
 
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Delivered &amp; returned</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {byLocation.length === 0 ? (
-            <Empty>Nothing has been allotted for this day yet.</Empty>
-          ) : (
-            byLocation.map(([locId, rows]) => (
-              <div key={locId}>
-                <div className="mb-1 text-sm font-medium">{locationName(locId)}</div>
+      <OrderAnalytics
+        period={analyticsPeriod}
+        anchorDate={analyticsDate}
+        fromYear={analyticsFromYear}
+        toYear={analyticsToYear}
+        yearToDate={analyticsYearToDate}
+      />
+
+      {analyticsPeriod === "day" ? (
+        <>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <Stat label="Required" value={String(totals.required)} />
+            <Stat label="Produced" value={String(totals.produced)} />
+            <Stat label="Delivered" value={String(totals.delivered)} />
+            <Stat label="Returned" value={String(totals.returned)} />
+            <Stat label="Waste" value={`${wastePct}%`} tone={wastePct > 15 ? "bad" : undefined} />
+          </div>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Requirements</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {scheduled.length === 0 ? (
+                <Empty>No locations take a delivery on this day.</Empty>
+              ) : (
                 <ul className="divide-y divide-border text-sm">
-                  {rows
-                    .slice()
-                    .sort((a, b) =>
-                      productName(a.product_id).localeCompare(productName(b.product_id)),
-                    )
-                    .map((a) => (
-                      <li key={a.id} className="flex items-center justify-between gap-3 py-2">
-                        <span className="truncate">{productName(a.product_id)}</span>
-                        <span className="shrink-0 tabular-nums text-muted-foreground">
-                          {a.quantity_allocated} sent ·{" "}
-                          {a.returned_at
-                            ? `${a.quantity_returned ?? 0} back`
-                            : "returns not logged"}
+                  {scheduled.map((loc) => {
+                    const req = requirements.find((r) => r.location_id === loc.id);
+                    return (
+                      <li key={loc.id} className="flex items-center justify-between py-2">
+                        <span>{loc.name}</span>
+                        <span className="tabular-nums text-muted-foreground">
+                          {req ? `${req.total_required} lunches` : "not set"}
                         </span>
                       </li>
-                    ))}
+                    );
+                  })}
                 </ul>
-              </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Production</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {production.length === 0 ? (
+                <Empty>Nothing was registered as produced on this day.</Empty>
+              ) : (
+                <ul className="divide-y divide-border text-sm">
+                  {production.map((p) => (
+                    <li key={p.id} className="flex items-center justify-between gap-3 py-2">
+                      <span className="flex min-w-0 items-center gap-2">
+                        <span className="truncate">{productName(p.product_id)}</span>
+                        {isVegan(p.product_id) && (
+                          <Badge variant="secondary" className="shrink-0">
+                            Vegan
+                          </Badge>
+                        )}
+                      </span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {p.quantity_produced}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Delivered &amp; returned</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {byLocation.length === 0 ? (
+                <Empty>Nothing has been allotted for this day yet.</Empty>
+              ) : (
+                byLocation.map(([locId, rows]) => (
+                  <div key={locId}>
+                    <div className="mb-1 text-sm font-medium">{locationName(locId)}</div>
+                    <ul className="divide-y divide-border text-sm">
+                      {rows
+                        .slice()
+                        .sort((a, b) =>
+                          productName(a.product_id).localeCompare(productName(b.product_id)),
+                        )
+                        .map((a) => (
+                          <li key={a.id} className="flex items-center justify-between gap-3 py-2">
+                            <span className="truncate">{productName(a.product_id)}</span>
+                            <span className="shrink-0 tabular-nums text-muted-foreground">
+                              {a.quantity_allocated} sent ·{" "}
+                              {a.returned_at
+                                ? `${a.quantity_returned ?? 0} back`
+                                : "returns not logged"}
+                            </span>
+                          </li>
+                        ))}
+                    </ul>
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </>
+      ) : null}
     </div>
   );
 }
