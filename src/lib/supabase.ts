@@ -14,8 +14,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 });
 
 export const PRODUCT_COLUMNS =
-  "id,name,translated_name,week_number,delivery_day,is_vegan,is_vegetarian,is_snack,types,image_url,storytel_delivery_days";
-
+  "id,numeric_id,name,translated_name,week_number,delivery_day,is_vegan,is_vegetarian,is_snack,types,image_url,storytel_delivery_days";
 
 export type Location = {
   id: string;
@@ -27,6 +26,7 @@ export type Location = {
 
 export type Product = {
   id: string;
+  numeric_id: number | null;
   name: string;
   translated_name: string | null;
   week_number: number | null;
@@ -39,7 +39,36 @@ export type Product = {
   /** Weekdays this dish is part of Storytel's daily run. */
   storytel_delivery_days: string[] | null;
   image_url: string | null;
+};
 
+export type PaymentMethod = "SWISH_MANUAL" | "SWISH_API" | "STRIPE";
+export type OrderTransactionType =
+  "PAYMENT" | "REFUND" | "REFUND_CORRECTION" | "PAYOUT" | "UNKNOWN";
+
+export type OrderRow = {
+  id: string;
+  user_id: string | null;
+  payment_method: PaymentMethod;
+  external_reference: string | null;
+  transaction_type: OrderTransactionType;
+  ordered_at: string;
+  amount: number;
+  currency: string;
+  message: string;
+  location_id: string;
+  imported_at: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OrderItemRow = {
+  id: string;
+  order_id: string;
+  raw_product_numeric_id: number;
+  product_id: string | null;
+  quantity: number;
+  unit_amount: number | null;
+  created_at: string;
 };
 
 /** Keyed by production_date — week/year are never written by this app. */
