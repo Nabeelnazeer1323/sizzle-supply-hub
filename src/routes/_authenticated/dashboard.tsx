@@ -14,6 +14,7 @@ import {
 import { currentWeek, formatDate, isoWeekDate } from "@/lib/week";
 import { deliversOn } from "@/lib/delivery";
 import { WeekBar, normalizeDay } from "@/components/WeekBar";
+import { OrderAnalytics } from "@/components/OrderAnalytics";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -23,9 +24,9 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
   validateSearch: (search: Record<string, unknown>): Search => {
     const now = currentWeek();
     return {
-      year: Number(search['year']) || now.year,
-      week: Number(search['week']) || now.week,
-      day: typeof search['day'] === "string" ? search['day'] : "Monday",
+      year: Number(search["year"]) || now.year,
+      week: Number(search["week"]) || now.week,
+      day: typeof search["day"] === "string" ? search["day"] : "Monday",
     };
   },
   head: () => ({
@@ -156,9 +157,7 @@ function DashboardPage() {
     delivered: allocations.reduce((s, a) => s + (a.quantity_allocated ?? 0), 0),
     returned: allocations.reduce((s, a) => s + (a.quantity_returned ?? 0), 0),
   };
-  const wastePct = totals.delivered
-    ? Math.round((totals.returned / totals.delivered) * 100)
-    : 0;
+  const wastePct = totals.delivered ? Math.round((totals.returned / totals.delivered) * 100) : 0;
 
   const byLocation = useMemo(() => {
     const map = new Map<string, AllocationRow[]>();
@@ -181,6 +180,8 @@ function DashboardPage() {
       </div>
 
       <WeekBar year={year} week={week} day={day} />
+
+      <OrderAnalytics date={date} year={year} week={week} />
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
         <Stat label="Required" value={String(totals.required)} />
@@ -256,7 +257,9 @@ function DashboardPage() {
                 <ul className="divide-y divide-border text-sm">
                   {rows
                     .slice()
-                    .sort((a, b) => productName(a.product_id).localeCompare(productName(b.product_id)))
+                    .sort((a, b) =>
+                      productName(a.product_id).localeCompare(productName(b.product_id)),
+                    )
                     .map((a) => (
                       <li key={a.id} className="flex items-center justify-between gap-3 py-2">
                         <span className="truncate">{productName(a.product_id)}</span>

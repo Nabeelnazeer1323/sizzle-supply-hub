@@ -142,7 +142,7 @@ function normalizeName(value: string): string {
 }
 
 /** Interpret Nordea's timezone-less clock value as Europe/Stockholm, then store UTC. */
-function stockholmLocalToIso(date: string, time: string): string {
+export function stockholmLocalToIso(date: string, time: string): string {
   const [year, month, day] = date.split("-").map(Number);
   const [hour, minute, second] = time.split(":").map(Number);
   if ([year, month, day, hour, minute, second].some((part) => !Number.isFinite(part))) {
