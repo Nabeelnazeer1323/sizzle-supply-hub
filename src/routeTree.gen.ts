@@ -16,6 +16,7 @@ import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AuthenticatedAllotmentRouteImport } from './routes/_authenticated/allotment'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedOrderImportRouteImport } from './routes/_authenticated/order-import'
+import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated/orders'
 import { Route as AuthenticatedPackingRouteImport } from './routes/_authenticated/packing'
 import { Route as AuthenticatedProductionRouteImport } from './routes/_authenticated/production'
 import { Route as AuthenticatedRequirementsRouteImport } from './routes/_authenticated/requirements'
@@ -56,6 +57,11 @@ const AuthenticatedOrderImportRoute =
     path: '/order-import',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedOrdersRoute = AuthenticatedOrdersRouteImport.update({
+  id: '/orders',
+  path: '/orders',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedPackingRoute = AuthenticatedPackingRouteImport.update({
   id: '/packing',
   path: '/packing',
@@ -85,6 +91,7 @@ export interface FileRoutesByFullPath {
   '/allotment': typeof AuthenticatedAllotmentRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/order-import': typeof AuthenticatedOrderImportRoute
+  '/orders': typeof AuthenticatedOrdersRoute
   '/packing': typeof AuthenticatedPackingRoute
   '/production': typeof AuthenticatedProductionRoute
   '/requirements': typeof AuthenticatedRequirementsRoute
@@ -97,6 +104,7 @@ export interface FileRoutesByTo {
   '/allotment': typeof AuthenticatedAllotmentRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/order-import': typeof AuthenticatedOrderImportRoute
+  '/orders': typeof AuthenticatedOrdersRoute
   '/packing': typeof AuthenticatedPackingRoute
   '/production': typeof AuthenticatedProductionRoute
   '/requirements': typeof AuthenticatedRequirementsRoute
@@ -111,6 +119,7 @@ export interface FileRoutesById {
   '/_authenticated/allotment': typeof AuthenticatedAllotmentRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/order-import': typeof AuthenticatedOrderImportRoute
+  '/_authenticated/orders': typeof AuthenticatedOrdersRoute
   '/_authenticated/packing': typeof AuthenticatedPackingRoute
   '/_authenticated/production': typeof AuthenticatedProductionRoute
   '/_authenticated/requirements': typeof AuthenticatedRequirementsRoute
@@ -125,6 +134,7 @@ export interface FileRouteTypes {
     | '/allotment'
     | '/dashboard'
     | '/order-import'
+    | '/orders'
     | '/packing'
     | '/production'
     | '/requirements'
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/allotment'
     | '/dashboard'
     | '/order-import'
+    | '/orders'
     | '/packing'
     | '/production'
     | '/requirements'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/_authenticated/allotment'
     | '/_authenticated/dashboard'
     | '/_authenticated/order-import'
+    | '/_authenticated/orders'
     | '/_authenticated/packing'
     | '/_authenticated/production'
     | '/_authenticated/requirements'
@@ -214,6 +226,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedOrderImportRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/orders': {
+      id: '/_authenticated/orders'
+      path: '/orders'
+      fullPath: '/orders'
+      preLoaderRoute: typeof AuthenticatedOrdersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/packing': {
       id: '/_authenticated/packing'
       path: '/packing'
@@ -249,6 +268,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAllotmentRoute: typeof AuthenticatedAllotmentRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedOrderImportRoute: typeof AuthenticatedOrderImportRoute
+  AuthenticatedOrdersRoute: typeof AuthenticatedOrdersRoute
   AuthenticatedPackingRoute: typeof AuthenticatedPackingRoute
   AuthenticatedProductionRoute: typeof AuthenticatedProductionRoute
   AuthenticatedRequirementsRoute: typeof AuthenticatedRequirementsRoute
@@ -259,6 +279,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAllotmentRoute: AuthenticatedAllotmentRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedOrderImportRoute: AuthenticatedOrderImportRoute,
+  AuthenticatedOrdersRoute: AuthenticatedOrdersRoute,
   AuthenticatedPackingRoute: AuthenticatedPackingRoute,
   AuthenticatedProductionRoute: AuthenticatedProductionRoute,
   AuthenticatedRequirementsRoute: AuthenticatedRequirementsRoute,

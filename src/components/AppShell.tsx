@@ -7,6 +7,7 @@ import {
   ClipboardList,
   LogOut,
   PackageCheck,
+  ReceiptText,
   Split,
   Undo2,
   Utensils,
@@ -31,6 +32,7 @@ const NAV: {
   { to: "/packing", label: "Packing", short: "Pack", icon: PackageCheck },
   { to: "/returns", label: "Returns", short: "Returns", icon: Undo2 },
   { to: "/order-import", label: "Order Import", short: "Import", icon: Landmark },
+  { to: "/orders", label: "Orders", short: "Orders", icon: ReceiptText },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {

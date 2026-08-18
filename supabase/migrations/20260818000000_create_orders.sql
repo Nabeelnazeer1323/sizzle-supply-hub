@@ -5,6 +5,7 @@ create table if not exists public.orders (
   -- Null for guest purchases. A future signed-in customer can own the order.
   user_id uuid references auth.users(id) on delete set null,
   payment_method text not null,
+  import_key text not null,
   external_reference text,
   transaction_type text not null default 'PAYMENT',
   ordered_at timestamptz not null,
@@ -14,7 +15,10 @@ create table if not exists public.orders (
   -- The message is required source data for matching and later reprocessing.
   -- Do not store payer name, phone number or the complete raw CSV row.
   message text not null,
-  location_id uuid not null references public.locations(id) on delete restrict,
+  source_order_id text,
+  source_status text,
+  location_id uuid references public.locations(id) on delete restrict,
+  mapping_status text not null default 'UNMAPPED',
   imported_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -26,7 +30,8 @@ create table if not exists public.orders (
     transaction_type in ('PAYMENT', 'REFUND', 'REFUND_CORRECTION', 'PAYOUT', 'UNKNOWN')
   ),
   constraint orders_currency_check check (currency ~ '^[A-Z]{3}$'),
-  constraint orders_payment_reference_unique unique (payment_method, external_reference)
+  constraint orders_mapping_status_check check (mapping_status in ('MAPPED', 'UNMAPPED')),
+  constraint orders_payment_import_key_unique unique (payment_method, import_key)
 );
 
 -- One payment can contain several product numbers in its message.
@@ -48,6 +53,7 @@ create table if not exists public.order_items (
 create index if not exists orders_ordered_at_idx on public.orders (ordered_at desc);
 create index if not exists orders_user_id_idx on public.orders (user_id);
 create index if not exists orders_location_id_idx on public.orders (location_id);
+create index if not exists orders_mapping_status_idx on public.orders (mapping_status);
 create index if not exists order_items_order_id_idx on public.order_items (order_id);
 create index if not exists order_items_product_id_idx on public.order_items (product_id);
 create index if not exists products_numeric_id_idx on public.products (numeric_id);

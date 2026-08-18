@@ -44,18 +44,23 @@ export type Product = {
 export type PaymentMethod = "SWISH_MANUAL" | "SWISH_API" | "STRIPE";
 export type OrderTransactionType =
   "PAYMENT" | "REFUND" | "REFUND_CORRECTION" | "PAYOUT" | "UNKNOWN";
+export type OrderMappingStatus = "MAPPED" | "UNMAPPED";
 
 export type OrderRow = {
   id: string;
   user_id: string | null;
   payment_method: PaymentMethod;
+  import_key: string;
   external_reference: string | null;
   transaction_type: OrderTransactionType;
   ordered_at: string;
   amount: number;
   currency: string;
   message: string;
-  location_id: string;
+  source_order_id: string | null;
+  source_status: string | null;
+  location_id: string | null;
+  mapping_status: OrderMappingStatus;
   imported_at: string;
   created_at: string;
   updated_at: string;
