@@ -110,7 +110,9 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubOwner}/${GitHubRepository}:ref:refs/heads/${GitHubBranch}"
+                # This AWS account's GitHub OIDC policy includes immutable owner
+                # and repository IDs in the subject, protecting against renames.
+                token.actions.githubusercontent.com:sub: !Sub "repo:${GitHubOwner}@221956703/${GitHubRepository}@1336117670:ref:refs/heads/${GitHubBranch}"
       Policies:
         - PolicyName: DeployStaticSite
           PolicyDocument:
