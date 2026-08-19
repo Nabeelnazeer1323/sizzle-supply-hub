@@ -7,7 +7,12 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
 export default defineConfig({
+  // CloudFront serves this application as a static SPA from S3.
+  nitro: false,
   tanstackStart: {
+    // Render the application shell at build time so the client-only Supabase app
+    // can also be hosted from a static S3 origin behind CloudFront.
+    spa: { enabled: true },
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
