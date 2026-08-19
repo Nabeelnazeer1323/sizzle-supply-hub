@@ -20,6 +20,7 @@ export type AnalyticsPeriod = "day" | "week" | "month" | "year";
 
 type AnalyticsOrder = {
   id: string;
+  ordered_at: string;
   transaction_type: "PAYMENT" | "REFUND" | "REFUND_CORRECTION" | "PAYOUT" | "UNKNOWN";
   amount: number;
   mapping_status: "MAPPED" | "UNMAPPED";
@@ -44,6 +45,49 @@ const categoryConfig = {
 } satisfies ChartConfig;
 const money = new Intl.NumberFormat("sv-SE", { style: "currency", currency: "SEK" });
 
+export function YearToDateHighlights() {
+  const currentYear = new Date().getFullYear();
+  const range = analyticsRange("year", `${currentYear}-01-01`, currentYear, currentYear, true);
+  const ordersQuery = useQuery({
+    queryKey: ["order-analytics-highlights", currentYear, range.start, range.end],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("orders")
+        .select(
+          "id,ordered_at,transaction_type,amount,mapping_status,locations(name),order_items(quantity,products(name,types,is_snack))",
+        )
+        .gte("ordered_at", range.start)
+        .lt("ordered_at", range.end)
+        .order("ordered_at", { ascending: true });
+      if (error) throw error;
+      return data as unknown as AnalyticsOrder[];
+    },
+  });
+
+  const payments = (ordersQuery.data ?? []).filter((order) => order.transaction_type === "PAYMENT");
+  const highlights = calculateHighlights(payments);
+
+  return (
+    <section className="space-y-3">
+      <div>
+        <h2 className="text-lg font-semibold tracking-tight">Year to date</h2>
+        <p className="text-sm text-muted-foreground">
+          Highlights for {currentYear} · always January 1 through today
+        </p>
+      </div>
+
+      {ordersQuery.error ? (
+        <Alert variant="destructive">
+          <AlertTitle>Could not load year-to-date highlights</AlertTitle>
+          <AlertDescription>{ordersQuery.error.message}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      <HighlightsGrid {...highlights} />
+    </section>
+  );
+}
+
 export function OrderAnalytics({
   period,
   anchorDate,
@@ -67,7 +111,7 @@ export function OrderAnalytics({
       const { data, error } = await supabase
         .from("orders")
         .select(
-          "id,transaction_type,amount,mapping_status,locations(name),order_items(quantity,products(name,types,is_snack))",
+          "id,ordered_at,transaction_type,amount,mapping_status,locations(name),order_items(quantity,products(name,types,is_snack))",
         )
         .gte("ordered_at", range.start)
         .lt("ordered_at", range.end)
@@ -269,6 +313,165 @@ export function OrderAnalytics({
       </Card>
     </section>
   );
+}
+
+function calculateHighlights(payments: AnalyticsOrder[]) {
+  const gross = payments.reduce((sum, order) => sum + Number(order.amount), 0);
+  const products = new Map<string, number>();
+  const locations = new Map<string, { name: string; sales: number; orders: number }>();
+  const days = new Map<string, { sales: number; orders: number }>();
+  const stockholmDate = new Intl.DateTimeFormat("sv-SE", {
+    timeZone: "Europe/Stockholm",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+
+  for (const order of payments) {
+    const locationName = order.locations?.name ?? "Unmapped";
+    const location = locations.get(locationName) ?? {
+      name: locationName,
+      sales: 0,
+      orders: 0,
+    };
+    location.sales += Number(order.amount);
+    location.orders += 1;
+    locations.set(locationName, location);
+
+    const date = stockholmDate.format(new Date(order.ordered_at));
+    const day = days.get(date) ?? { sales: 0, orders: 0 };
+    day.sales += Number(order.amount);
+    day.orders += 1;
+    days.set(date, day);
+
+    for (const item of order.order_items) {
+      const productName = item.products?.name ?? "Unknown product";
+      products.set(productName, (products.get(productName) ?? 0) + item.quantity);
+    }
+  }
+
+  const productData = [...products]
+    .map(([name, units]) => ({ name, units }))
+    .sort((a, b) => b.units - a.units);
+  const topLocation = [...locations.values()].sort((a, b) => b.sales - a.sales)[0];
+  const locationProducts = new Map<string, number>();
+  if (topLocation) {
+    for (const order of payments) {
+      if ((order.locations?.name ?? "Unmapped") !== topLocation.name) continue;
+      for (const item of order.order_items) {
+        const name = item.products?.name ?? "Unknown product";
+        locationProducts.set(name, (locationProducts.get(name) ?? 0) + item.quantity);
+      }
+    }
+  }
+
+  return {
+    gross,
+    totalUnits: productData.reduce((sum, product) => sum + product.units, 0),
+    topProduct: productData[0],
+    topLocation,
+    topLocationProduct: [...locationProducts]
+      .map(([name, units]) => ({ name, units }))
+      .sort((a, b) => b.units - a.units)[0],
+    bestSalesDay: [...days]
+      .map(([date, value]) => ({ date, ...value }))
+      .sort((a, b) => b.sales - a.sales)[0],
+  };
+}
+
+function HighlightsGrid({
+  gross,
+  totalUnits,
+  topProduct,
+  topLocation,
+  topLocationProduct,
+  bestSalesDay,
+}: ReturnType<typeof calculateHighlights>) {
+  return (
+    <div className="grid gap-3 lg:grid-cols-3">
+      <HighlightCard title="Most sold dish">
+        <HighlightValue>{topProduct?.name ?? "No sales yet"}</HighlightValue>
+        <p className="text-sm text-muted-foreground">
+          {topProduct
+            ? `${topProduct.units} of ${totalUnits} units sold across all dishes`
+            : "No units sold this year"}
+        </p>
+        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4">
+          <HighlightMetric label="All dishes" value={`${totalUnits} units`} />
+          <HighlightMetric label="Total sales" value={money.format(gross)} />
+        </div>
+      </HighlightCard>
+
+      <HighlightCard title="Best performing location">
+        <HighlightValue>{topLocation?.name ?? "No sales yet"}</HighlightValue>
+        <p className="text-sm text-muted-foreground">
+          {topLocation
+            ? `${topLocation.orders} orders · ${money.format(topLocation.sales)}`
+            : "No location sales this year"}
+        </p>
+        <div className="mt-4 border-t border-border pt-4">
+          <HighlightMetric
+            label="Most sold dish here"
+            value={
+              topLocationProduct
+                ? `${topLocationProduct.name} · ${topLocationProduct.units} units`
+                : "—"
+            }
+          />
+        </div>
+      </HighlightCard>
+
+      <HighlightCard title="Best sales day">
+        <HighlightValue>
+          {bestSalesDay ? formatAnalyticsDate(bestSalesDay.date) : "No sales yet"}
+        </HighlightValue>
+        <p className="text-sm text-muted-foreground">Highest-grossing day this year</p>
+        <div className="mt-4 grid grid-cols-2 gap-3 border-t border-border pt-4">
+          <HighlightMetric
+            label="Sales"
+            value={bestSalesDay ? money.format(bestSalesDay.sales) : money.format(0)}
+          />
+          <HighlightMetric label="Orders" value={String(bestSalesDay?.orders ?? 0)} />
+        </div>
+      </HighlightCard>
+    </div>
+  );
+}
+
+function HighlightCard({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
+function HighlightValue({ children }: { children: React.ReactNode }) {
+  return <p className="truncate text-xl font-semibold tracking-tight">{children}</p>;
+}
+
+function HighlightMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="truncate text-sm font-semibold tabular-nums" title={value}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function formatAnalyticsDate(date: string) {
+  return new Intl.DateTimeFormat("en-SE", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  }).format(new Date(`${date}T12:00:00`));
 }
 
 function analyticsCategory(

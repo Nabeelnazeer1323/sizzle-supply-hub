@@ -14,7 +14,11 @@ import {
 import { currentWeek, formatDate, isoWeekDate } from "@/lib/week";
 import { deliversOn } from "@/lib/delivery";
 import { WeekBar, normalizeDay } from "@/components/WeekBar";
-import { OrderAnalytics, type AnalyticsPeriod } from "@/components/OrderAnalytics";
+import {
+  OrderAnalytics,
+  YearToDateHighlights,
+  type AnalyticsPeriod,
+} from "@/components/OrderAnalytics";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -201,6 +205,8 @@ function DashboardPage() {
             : "Sales performance by location, product and product type."}
         </p>
       </div>
+
+      <YearToDateHighlights />
 
       <Card className="print:hidden">
         <CardContent className="space-y-4 p-4">
