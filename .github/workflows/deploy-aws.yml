@@ -39,6 +39,8 @@ jobs:
 
       - name: Build static application
         run: npm run build
+        env:
+          STATIC_ONLY: "1"
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
