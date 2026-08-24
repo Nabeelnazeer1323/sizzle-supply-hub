@@ -1,37 +1,27 @@
-# Fix the Returns logic
+# Dish-by-location analytics on the dashboard
 
-## What is actually wrong (traced in the code)
+Add one new analytics section to the dashboard: pick a dish, see how it sold in each location over the selected timeframe (day / week / month / year). Nothing existing changes — a new self-contained component is added and rendered below the current charts.
 
-**1. Friday at Storytel shows the whole week.**
-`returnsWindow` asks for a wide range (30 days back) and then narrows to the "strict" day. In `returns.tsx` the narrowing has a fallback: `candidates = inStrict.length > 0 ? inStrict : pending`. On Friday the strict day is Thursday, nothing was delivered on Thursday, so the strict list is empty and the page silently falls back to every unlogged delivery of the last month. Thursday works only because Wednesday genuinely has rows.
+## What you get
 
-**2. A dish that runs Monday and Tuesday disappears after the first pickup.**
-Allotment writes one `allocations` row per product per `delivery_date`, and a dish only has one `delivery_day`. A dish that Storytel serves Monday *and* Tuesday therefore has a single row. Logging the pickup on Tuesday stamps `returned_at` on that one row, so on Wednesday there is nothing left to count for Tuesday's batch. One row cannot hold two pickups.
+A new card group titled "Dish by location":
 
-**3. Storytel days come from the wrong place.**
-The window is decided from the location (previous weekday), and `storytel_delivery_days` is only used afterwards to filter the list. It has to be the other way round: the dish's own `storytel_delivery_days` in the products table decides which days it was in the fridge.
+- A dropdown listing only the dishes that actually have sales in the currently selected timeframe (day, week, month, or year range chosen with the existing buttons above). It defaults to the best-selling dish of that period and resets when the period changes.
+- Three small stat tiles for the chosen dish: units sold, sales value, number of orders containing it.
+- A bar chart of units sold per location, styled exactly like the existing "Sales by location" chart.
+- A list under the chart with each location's units and sales value for that dish, matching the current list style.
+- Same empty state ("No sales in this period.") and same red error alert style when the data can't load.
 
-**4. Other locations can see current-week dishes.**
-`returnsWindow` stretches `end` forward to the last delivery day when it is later than last Friday, and the wide fallback in point 1 pulls in more. Returns for a weekly location must only ever be last week.
+All numbers come only from the `orders` table (payments only, refunds excluded), joined to their order items, products and locations — the same source the current charts use.
 
-## The fix
+## Technical details
 
-### Pickups become their own record
-Add a `pickups` table: location, product, the delivery date the food came from, the pickup date, and the quantity returned. Returns are logged there instead of stamping the single allocation row, so Tuesday's and Wednesday's counts for the same dish stay apart. `allocations.quantity_returned` keeps being updated with the running total so the rest of the app and reporting are unchanged.
-
-### Storytel: driven by the dish, not the location
-Pickup on day D covers the previous delivery day (Monday covers Friday). A dish appears if its `storytel_delivery_days` includes that previous day and it was allotted to Storytel in that week. Each day gets its own line, so a Monday+Tuesday dish is counted on Tuesday for Monday and again on Wednesday for Tuesday.
-
-### Other locations: strictly last week
-Monday–Friday of the previous ISO week, nothing from the current week, no wide fallback. All dishes delivered across that whole week show at once.
-
-### Empty days
-When nothing is due, the page says so. Below it, a small collapsed "Still open" section lists older deliveries never logged, so a skipped day can be caught up without polluting the normal list.
-
-## Technical notes
-
-- Migration: `create table public.pickups (id uuid pk default gen_random_uuid(), location_id uuid, product_id uuid, delivery_date date, pickup_date date, quantity_returned int not null default 0, created_at timestamptz default now(), unique (location_id, product_id, delivery_date, pickup_date))`, followed by `grant select, insert, update, delete ... to authenticated`, `grant all ... to service_role`, `enable row level security`, and a policy allowing signed-in staff. Purely additive; the customer-facing app is untouched. The SQL goes into `/setup` alongside the existing statements.
-- `src/lib/delivery.ts`: `returnsWindow` is replaced by `pickupsDue(location, date, allocations, products)` returning one entry per (allocation, source day). Storytel expands rows over `storytel_delivery_days`; weekly locations return one entry per allocation in the previous ISO week. `end` no longer stretches into the current week and the `inStrict ? : pending` fallback is deleted.
-- `src/routes/_authenticated/returns.tsx`: query allocations for the previous week (and, for Storytel, the week containing the previous delivery day), join the already-saved `pickups` rows to hide what is done, and save through `pickups` upsert plus a `quantity_returned` total update on the allocation. `returned_at` is no longer the pending marker.
-- "Still open" list = deliveries older than the current window with no matching `pickups` row, rendered collapsed under the main list.
-- The week/day bar, the "All sold" one-tap save and the per-dish stepper stay exactly as they are.
+- New file `src/components/DishLocationAnalytics.tsx`, exporting `DishLocationAnalytics`.
+- Props mirror the existing `OrderAnalytics` props: `period`, `anchorDate`, `fromYear`, `toYear`, `yearToDate`. It imports the `AnalyticsPeriod` type from `@/components/OrderAnalytics` (type-only, no logic touched).
+- The date-window helper `analyticsRange` in `OrderAnalytics.tsx` is not exported; rather than change that file, the new component contains its own private copy of the same start/end computation (using `stockholmLocalToIso` and `shiftDate`), so behaviour matches the existing charts exactly.
+- Own React Query key `["dish-location-analytics", period, start, end]`, selecting
+  `id,ordered_at,transaction_type,amount,locations(name),order_items(quantity,products(id,name))`
+  filtered with `gte/lt` on `ordered_at`, then filtered client-side to `transaction_type === "PAYMENT"`.
+- Per-order amount is attributed to the selected dish proportionally by its share of that order's units, so location sales values stay consistent with order totals.
+- Dropdown uses the existing shadcn `Select` component; chart uses `ChartContainer` + `BarChart` with a `chart-3` colour token so it reads as a distinct series.
+- Only edit to an existing file: `src/routes/_authenticated/dashboard.tsx` gets an import plus one `<DishLocationAnalytics ... />` render below `<OrderAnalytics />`, passing the same state values already held there. No existing logic, query, or component is modified.
