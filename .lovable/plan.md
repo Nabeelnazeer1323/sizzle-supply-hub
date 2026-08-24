@@ -1,28 +1,46 @@
-# Fix the published site returning "This page didn't load"
+# Fix the "This page didn't load" error after publishing
 
-## What's wrong
+## What is broken
 
-Every request to sizzle-supply-hub.lovable.app returns HTTP 500. The server logs show the real cause:
+The published site (and intermittently the preview) returns a 500 error page. The server log shows:
 
 ```text
-Error: No such module "assets/react".
-  imported from "assets/server-B7OdOQHn.js"
+Error: No such module "assets/react"
 ```
 
-The published site is served by a Cloudflare worker, but the current build no longer produces a bundled worker. `vite.config.ts` sets `nitro: false` (added along with the AWS/CloudFront static-hosting setup done outside Lovable). Without that build step, the server entry is emitted unbundled and tries to resolve `react` at runtime — which does not exist in the worker — so the SSR wrapper in `src/server.ts` catches the failure and returns the branded error page for every path.
+That means the hosted worker for the site was never built — only the static browser bundle was.
 
-The preview keeps working because the dev server resolves modules from `node_modules`; only the published worker breaks.
+## Why it happened
 
-## The fix
+Commit `f0ba084` ("add automatic AWS CloudFront deployment", Aug 19) changed the build so it produces **only** a static SPA for S3/CloudFront:
 
-Re-enable the worker build while keeping the static SPA output that the GitHub Actions AWS deploy uses:
+- `vite.config.ts` — added `nitro: false` (stops building the server worker) and `tanstackStart.spa.enabled: true`
+- `src/start.ts` — added `defaultSsr: false`
 
-- In `vite.config.ts`, remove `nitro: false` and keep `tanstackStart.spa.enabled` and the `server: { entry: "server" }` override.
-- The build still emits `dist/client/` with `_shell.html`, so `.github/workflows/deploy-aws.yml` continues to work unchanged — it only uploads `dist/client/`.
-- Republish, then verify `GET /` returns 200 and the dashboard loads, and confirm the worker logs no longer show the `No such module` error.
+Lovable hosting serves the app through that worker. With `nitro: false` there is no worker bundle, so every request to the Lovable/published URL falls back to a broken entry and returns the generic error page. AWS CloudFront kept working because it only needs `dist/client`.
 
-If you would rather keep the AWS build free of the worker step, the alternative is to gate it: `nitro: process.env.STATIC_ONLY === "1" ? false : undefined`, and set `STATIC_ONLY=1` in the AWS workflow's build step. Lovable publishing would then use the worker build, AWS the static one. Say the word if you want that variant instead of the simple removal.
+So nothing in the app logic (dashboard, returns, analytics) broke the site — the hosting output did.
 
-## Note on the two hosting paths
+## The fix: one build config, two targets
 
-This project is currently published in two places: Lovable's worker hosting and your own S3 + CloudFront distribution. Config changes made in the Codex/GitHub branch for CloudFront can break Lovable publishing, as happened here. Keeping the shared `vite.config.ts` worker-compatible (as above) avoids that.
+Make the static-only settings conditional on an environment variable, so both workflows keep working from the same repo:
+
+1. `vite.config.ts`
+   - Read `process.env.STATIC_ONLY === "1"`.
+   - When set: `nitro: false` and `tanstackStart.spa.enabled: true` (current AWS behaviour, unchanged).
+   - When not set (Lovable publish, preview, local dev): leave `nitro` at its default so the worker bundle is produced again, and keep `server: { entry: "server" }` for the SSR error wrapper.
+2. `src/start.ts`
+   - Keep the app client-rendered in both modes to avoid new SSR-only bugs, but do it in a way that does not require the static build: keep `defaultSsr: false` as-is. This is safe with the worker because the worker still serves the shell and server functions.
+3. `.github/workflows/deploy-aws.yml`
+   - Set `STATIC_ONLY: 1` in the build step's env so the AWS build keeps emitting `dist/client/_shell.html` exactly as it does today.
+
+## Verification
+
+- Run the production build without `STATIC_ONLY` and confirm the worker output exists (`.output`/nitro server bundle present, no `No such module "assets/react"`).
+- Run the build with `STATIC_ONLY=1` and confirm `dist/client/_shell.html` and `dist/client/assets/` are still produced for the AWS workflow.
+- Reload the preview, then publish and load the published URL; check server logs are clean.
+
+## Notes on working in both Codex and Lovable
+
+- Keep `vite.config.ts` hosting logic env-gated as above; if a future Codex change needs static-only behaviour, set `STATIC_ONLY` in that workflow instead of hardcoding `nitro: false`.
+- Avoid changing `tanstackStart.server.entry` — the SSR error wrapper in `src/server.ts` depends on it.
