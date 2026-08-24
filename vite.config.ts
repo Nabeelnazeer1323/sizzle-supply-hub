@@ -6,13 +6,15 @@
 // You can pass additional config via defineConfig({ vite: { ... }, etc... }) if needed.
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 
+// STATIC_ONLY=1 builds a pure static SPA for the S3 + CloudFront deployment
+// (see .github/workflows/deploy-aws.yml). Without it we keep the default
+// nitro worker build that Lovable preview/publish hosting requires.
+const staticOnly = process.env["STATIC_ONLY"] === "1";
+
 export default defineConfig({
-  // CloudFront serves this application as a static SPA from S3.
-  nitro: false,
+  ...(staticOnly ? { nitro: false as const } : {}),
   tanstackStart: {
-    // Render the application shell at build time so the client-only Supabase app
-    // can also be hosted from a static S3 origin behind CloudFront.
-    spa: { enabled: true },
+    ...(staticOnly ? { spa: { enabled: true } } : {}),
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
