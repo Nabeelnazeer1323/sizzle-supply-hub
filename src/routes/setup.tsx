@@ -152,6 +152,27 @@ function SetupPage() {
         </CardContent>
       </Card>
 
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="text-base">Snack inventory tables</CardTitle>
+          <CardDescription>
+            Run this to enable the Snacks pages: <code>snack_batches</code> (one row per delivery,
+            with cost and best-before) and <code>snack_adjustments</code> (write-offs and count
+            corrections). Stock is calculated live from these plus the orders table.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <Button variant="outline" onClick={() => copy("snacks", SNACK_SQL)}>
+            {copied === "snacks" ? <Check className="size-4" /> : <Copy className="size-4" />}
+            {copied === "snacks" ? "Copied" : "Copy snack SQL"}
+          </Button>
+          <pre className="max-h-[28rem] overflow-auto rounded-md bg-muted p-4 text-xs leading-relaxed">
+            <code>{SNACK_SQL}</code>
+          </pre>
+        </CardContent>
+      </Card>
+
+
       <Card className="mt-6 border-destructive/40">
         <CardHeader>
           <CardTitle className="text-base">Optional cleanup — drop unused columns</CardTitle>
