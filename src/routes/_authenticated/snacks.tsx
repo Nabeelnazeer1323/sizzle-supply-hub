@@ -173,7 +173,7 @@ function SnacksPage() {
         </div>
         <div className="flex gap-2">
           <Button asChild variant="outline">
-            <Link to="/snacks/report">
+            <Link to="/snacks/report" search={defaultWeekSearch()}>
               <BarChart3 className="size-4" /> Report
             </Link>
           </Button>
