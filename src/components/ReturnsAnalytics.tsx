@@ -59,7 +59,15 @@ function sortBuckets(buckets: Bucket[], mode: SortMode) {
   );
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone?: "bad" }) {
+function Stat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: "bad" | undefined;
+}) {
   return (
     <div className="rounded-lg border border-border bg-card p-3">
       <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
