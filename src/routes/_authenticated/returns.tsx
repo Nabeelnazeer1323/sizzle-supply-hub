@@ -249,19 +249,31 @@ function ReturnsPage() {
       {rows.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Nothing left to pick up here.
+            Nothing was delivered for this pickup.
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-2">
+          {allLogged && (
+            <p className="px-1 text-xs text-muted-foreground">
+              This pickup is already logged — change a number to correct it.
+            </p>
+          )}
           {rows.map((r) => {
             const value = draft[r.id] ?? 0;
             return (
               <Card key={r.id} className={value > 0 ? "border-primary/50" : ""}>
                 <CardContent className="flex items-center gap-3 py-3">
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">
-                      {r.product?.name ?? r.product_id}
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium">
+                        {r.product?.name ?? r.product_id}
+                      </span>
+                      {r.returned_at && (
+                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                          Logged
+                        </span>
+                      )}
                     </div>
                     <button
                       type="button"
@@ -283,6 +295,7 @@ function ReturnsPage() {
           })}
         </div>
       )}
+
 
       {rows.length > 0 && (
         <SaveBar
