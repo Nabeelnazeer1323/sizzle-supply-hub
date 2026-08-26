@@ -3,6 +3,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   BarChart3,
   ChefHat,
+  Cookie,
+
   LayoutDashboard,
   Landmark,
   ClipboardList,
@@ -42,8 +44,10 @@ const NAV: {
     short: "Waste",
     icon: BarChart3,
   },
+  { to: "/snacks", label: "Snacks", short: "Snacks", icon: Cookie },
   { to: "/order-import", label: "Order Import", short: "Import", icon: Landmark },
   { to: "/orders", label: "Orders", short: "Orders", icon: ReceiptText },
+
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {

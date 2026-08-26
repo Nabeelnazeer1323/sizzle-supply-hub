@@ -23,6 +23,9 @@ import { Route as AuthenticatedProductionRouteImport } from './routes/_authentic
 import { Route as AuthenticatedRequirementsRouteImport } from './routes/_authenticated/requirements'
 import { Route as AuthenticatedReturnsRouteImport } from './routes/_authenticated/returns'
 import { Route as AuthenticatedReturnsDashboardRouteImport } from './routes/_authenticated/returns-dashboard'
+import { Route as AuthenticatedSnacksRouteImport } from './routes/_authenticated/snacks'
+import { Route as AuthenticatedSnacksReportRouteImport } from './routes/_authenticated/snacks_.report'
+import { Route as AuthenticatedSnacksRestockRouteImport } from './routes/_authenticated/snacks_.restock'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -97,6 +100,23 @@ const AuthenticatedReturnsDashboardRoute =
     path: '/returns-dashboard',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSnacksRoute = AuthenticatedSnacksRouteImport.update({
+  id: '/snacks',
+  path: '/snacks',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSnacksReportRoute =
+  AuthenticatedSnacksReportRouteImport.update({
+    id: '/snacks_/report',
+    path: '/snacks/report',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSnacksRestockRoute =
+  AuthenticatedSnacksRestockRouteImport.update({
+    id: '/snacks_/restock',
+    path: '/snacks/restock',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -112,6 +132,9 @@ export interface FileRoutesByFullPath {
   '/requirements': typeof AuthenticatedRequirementsRoute
   '/returns': typeof AuthenticatedReturnsRoute
   '/returns-dashboard': typeof AuthenticatedReturnsDashboardRoute
+  '/snacks': typeof AuthenticatedSnacksRoute
+  '/snacks/report': typeof AuthenticatedSnacksReportRoute
+  '/snacks/restock': typeof AuthenticatedSnacksRestockRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -127,6 +150,9 @@ export interface FileRoutesByTo {
   '/requirements': typeof AuthenticatedRequirementsRoute
   '/returns': typeof AuthenticatedReturnsRoute
   '/returns-dashboard': typeof AuthenticatedReturnsDashboardRoute
+  '/snacks': typeof AuthenticatedSnacksRoute
+  '/snacks/report': typeof AuthenticatedSnacksReportRoute
+  '/snacks/restock': typeof AuthenticatedSnacksRestockRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -144,6 +170,9 @@ export interface FileRoutesById {
   '/_authenticated/requirements': typeof AuthenticatedRequirementsRoute
   '/_authenticated/returns': typeof AuthenticatedReturnsRoute
   '/_authenticated/returns-dashboard': typeof AuthenticatedReturnsDashboardRoute
+  '/_authenticated/snacks': typeof AuthenticatedSnacksRoute
+  '/_authenticated/snacks_/report': typeof AuthenticatedSnacksReportRoute
+  '/_authenticated/snacks_/restock': typeof AuthenticatedSnacksRestockRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -161,6 +190,9 @@ export interface FileRouteTypes {
     | '/requirements'
     | '/returns'
     | '/returns-dashboard'
+    | '/snacks'
+    | '/snacks/report'
+    | '/snacks/restock'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -176,6 +208,9 @@ export interface FileRouteTypes {
     | '/requirements'
     | '/returns'
     | '/returns-dashboard'
+    | '/snacks'
+    | '/snacks/report'
+    | '/snacks/restock'
   id:
     | '__root__'
     | '/'
@@ -192,6 +227,9 @@ export interface FileRouteTypes {
     | '/_authenticated/requirements'
     | '/_authenticated/returns'
     | '/_authenticated/returns-dashboard'
+    | '/_authenticated/snacks'
+    | '/_authenticated/snacks_/report'
+    | '/_authenticated/snacks_/restock'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -301,6 +339,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReturnsDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/snacks': {
+      id: '/_authenticated/snacks'
+      path: '/snacks'
+      fullPath: '/snacks'
+      preLoaderRoute: typeof AuthenticatedSnacksRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/snacks_/report': {
+      id: '/_authenticated/snacks_/report'
+      path: '/snacks/report'
+      fullPath: '/snacks/report'
+      preLoaderRoute: typeof AuthenticatedSnacksReportRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/snacks_/restock': {
+      id: '/_authenticated/snacks_/restock'
+      path: '/snacks/restock'
+      fullPath: '/snacks/restock'
+      preLoaderRoute: typeof AuthenticatedSnacksRestockRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -315,6 +374,9 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRequirementsRoute: typeof AuthenticatedRequirementsRoute
   AuthenticatedReturnsRoute: typeof AuthenticatedReturnsRoute
   AuthenticatedReturnsDashboardRoute: typeof AuthenticatedReturnsDashboardRoute
+  AuthenticatedSnacksRoute: typeof AuthenticatedSnacksRoute
+  AuthenticatedSnacksReportRoute: typeof AuthenticatedSnacksReportRoute
+  AuthenticatedSnacksRestockRoute: typeof AuthenticatedSnacksRestockRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -328,6 +390,9 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRequirementsRoute: AuthenticatedRequirementsRoute,
   AuthenticatedReturnsRoute: AuthenticatedReturnsRoute,
   AuthenticatedReturnsDashboardRoute: AuthenticatedReturnsDashboardRoute,
+  AuthenticatedSnacksRoute: AuthenticatedSnacksRoute,
+  AuthenticatedSnacksReportRoute: AuthenticatedSnacksReportRoute,
+  AuthenticatedSnacksRestockRoute: AuthenticatedSnacksRestockRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
