@@ -218,8 +218,6 @@ function KitchenSheetPage() {
     Wednesday: { bg: "#d97706", text: "#ffffff" },
     Thursday: { bg: "#9333ea", text: "#ffffff" },
     Friday: { bg: "#dc2626", text: "#ffffff" },
-    Saturday: { bg: "#0891b2", text: "#ffffff" },
-    Sunday: { bg: "#475569", text: "#ffffff" },
   };
 
   /** One card per (delivery day, location) that actually receives something. */
