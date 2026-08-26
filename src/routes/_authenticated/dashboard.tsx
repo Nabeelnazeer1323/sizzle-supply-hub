@@ -20,6 +20,7 @@ import {
   type AnalyticsPeriod,
 } from "@/components/OrderAnalytics";
 import { DishLocationAnalytics } from "@/components/DishLocationAnalytics";
+import { DietAnalytics } from "@/components/DietAnalytics";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
