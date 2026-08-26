@@ -24,6 +24,7 @@ import { Route as AuthenticatedRequirementsRouteImport } from './routes/_authent
 import { Route as AuthenticatedReturnsRouteImport } from './routes/_authenticated/returns'
 import { Route as AuthenticatedReturnsDashboardRouteImport } from './routes/_authenticated/returns-dashboard'
 import { Route as AuthenticatedSnacksRouteImport } from './routes/_authenticated/snacks'
+import { Route as AuthenticatedSnacksReportRouteImport } from './routes/_authenticated/snacks_.report'
 import { Route as AuthenticatedSnacksRestockRouteImport } from './routes/_authenticated/snacks_.restock'
 
 const IndexRoute = IndexRouteImport.update({
@@ -104,6 +105,12 @@ const AuthenticatedSnacksRoute = AuthenticatedSnacksRouteImport.update({
   path: '/snacks',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSnacksReportRoute =
+  AuthenticatedSnacksReportRouteImport.update({
+    id: '/snacks_/report',
+    path: '/snacks/report',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSnacksRestockRoute =
   AuthenticatedSnacksRestockRouteImport.update({
     id: '/snacks_/restock',
@@ -126,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/returns': typeof AuthenticatedReturnsRoute
   '/returns-dashboard': typeof AuthenticatedReturnsDashboardRoute
   '/snacks': typeof AuthenticatedSnacksRoute
+  '/snacks/report': typeof AuthenticatedSnacksReportRoute
   '/snacks/restock': typeof AuthenticatedSnacksRestockRoute
 }
 export interface FileRoutesByTo {
@@ -143,6 +151,7 @@ export interface FileRoutesByTo {
   '/returns': typeof AuthenticatedReturnsRoute
   '/returns-dashboard': typeof AuthenticatedReturnsDashboardRoute
   '/snacks': typeof AuthenticatedSnacksRoute
+  '/snacks/report': typeof AuthenticatedSnacksReportRoute
   '/snacks/restock': typeof AuthenticatedSnacksRestockRoute
 }
 export interface FileRoutesById {
@@ -162,6 +171,7 @@ export interface FileRoutesById {
   '/_authenticated/returns': typeof AuthenticatedReturnsRoute
   '/_authenticated/returns-dashboard': typeof AuthenticatedReturnsDashboardRoute
   '/_authenticated/snacks': typeof AuthenticatedSnacksRoute
+  '/_authenticated/snacks_/report': typeof AuthenticatedSnacksReportRoute
   '/_authenticated/snacks_/restock': typeof AuthenticatedSnacksRestockRoute
 }
 export interface FileRouteTypes {
@@ -181,6 +191,7 @@ export interface FileRouteTypes {
     | '/returns'
     | '/returns-dashboard'
     | '/snacks'
+    | '/snacks/report'
     | '/snacks/restock'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -198,6 +209,7 @@ export interface FileRouteTypes {
     | '/returns'
     | '/returns-dashboard'
     | '/snacks'
+    | '/snacks/report'
     | '/snacks/restock'
   id:
     | '__root__'
@@ -216,6 +228,7 @@ export interface FileRouteTypes {
     | '/_authenticated/returns'
     | '/_authenticated/returns-dashboard'
     | '/_authenticated/snacks'
+    | '/_authenticated/snacks_/report'
     | '/_authenticated/snacks_/restock'
   fileRoutesById: FileRoutesById
 }
@@ -333,6 +346,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSnacksRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/snacks_/report': {
+      id: '/_authenticated/snacks_/report'
+      path: '/snacks/report'
+      fullPath: '/snacks/report'
+      preLoaderRoute: typeof AuthenticatedSnacksReportRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/snacks_/restock': {
       id: '/_authenticated/snacks_/restock'
       path: '/snacks/restock'
@@ -355,6 +375,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedReturnsRoute: typeof AuthenticatedReturnsRoute
   AuthenticatedReturnsDashboardRoute: typeof AuthenticatedReturnsDashboardRoute
   AuthenticatedSnacksRoute: typeof AuthenticatedSnacksRoute
+  AuthenticatedSnacksReportRoute: typeof AuthenticatedSnacksReportRoute
   AuthenticatedSnacksRestockRoute: typeof AuthenticatedSnacksRestockRoute
 }
 
@@ -370,6 +391,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedReturnsRoute: AuthenticatedReturnsRoute,
   AuthenticatedReturnsDashboardRoute: AuthenticatedReturnsDashboardRoute,
   AuthenticatedSnacksRoute: AuthenticatedSnacksRoute,
+  AuthenticatedSnacksReportRoute: AuthenticatedSnacksReportRoute,
   AuthenticatedSnacksRestockRoute: AuthenticatedSnacksRestockRoute,
 }
 
