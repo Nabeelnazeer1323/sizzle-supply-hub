@@ -1,8 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { Wand2 } from "lucide-react";
+import { Printer, Wand2 } from "lucide-react";
 
 import {
   supabase,
@@ -21,8 +21,11 @@ import {
   type Category,
 } from "@/lib/category";
 import { deliversOn } from "@/lib/delivery";
+import { isPlantBased, plantSharePct, productsForDay } from "@/lib/serving";
+import { suggestForDay } from "@/lib/suggest";
 
-import { computeAllotment, locationTotals } from "@/lib/allotment";
+import { computeAllotment, largestRemainder, locationTotals } from "@/lib/allotment";
+
 import { WeekBar, normalizeDay } from "@/components/WeekBar";
 import { QtyStepper } from "@/components/QtyStepper";
 import { SaveBar } from "@/components/SaveBar";
