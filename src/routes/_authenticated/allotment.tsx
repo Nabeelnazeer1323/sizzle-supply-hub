@@ -132,19 +132,6 @@ function AllotmentPage() {
     },
   });
 
-  const products = useMemo(
-    () =>
-      dayProducts
-        .filter((p) => productCategory(p) === category)
-        .map((p) => ({
-          ...p,
-          isVegan: Boolean(p.is_vegan),
-          produced:
-            productionQuery.data?.find((r) => r.product_id === p.id)?.quantity_produced ?? 0,
-        })),
-    [dayProducts, category, productionQuery.data],
-  );
-
   const locations = useMemo(() => {
     const reqs = requirementsQuery.data ?? [];
     return (locationsQuery.data ?? [])
@@ -155,11 +142,54 @@ function AllotmentPage() {
           reqs.find(
             (r) => r.location_id === l.id && normalizeCategory(r.category) === category,
           )?.total_required ?? 0,
-        veganPct: l.vegan_target ?? 25,
+        veganPct: plantSharePct(l),
       }))
       .filter((l) => l.required > 0);
   }, [locationsQuery.data, requirementsQuery.data, category, day]);
 
+  // Dishes that reach at least one of these locations today — Storytel's
+  // multi-day dishes included.
+  const products = useMemo(
+    () =>
+      productsForDay(allProductsQuery.data ?? [], locations, day)
+        .filter((p) => productCategory(p) === category)
+        .map((p) => ({
+          ...p,
+          isVegan: isPlantBased(p),
+          produced:
+            productionQuery.data?.find((r) => r.product_id === p.id)?.quantity_produced ?? 0,
+        })),
+    [allProductsQuery.data, locations, day, category, productionQuery.data],
+  );
+
+  const suggestion = useMemo(
+    () => suggestForDay({ products, locations, weekday: day }),
+    [products, locations, day],
+  );
+
+  /**
+   * Proposal for the day: the suggested split, rescaled per dish whenever the
+   * kitchen confirmed a different number than suggested.
+   */
+  const suggestedCells = useMemo(() => {
+    const next: Record<string, Record<string, number>> = {};
+    for (const p of products) {
+      const suggested = suggestion.perProduct[p.id] ?? 0;
+      const target = p.produced > 0 ? p.produced : suggested;
+      if (target === suggested) {
+        next[p.id] = { ...(suggestion.cells[p.id] ?? {}) };
+        continue;
+      }
+      const weights = locations.map((l) => suggestion.cells[p.id]?.[l.id] ?? 0);
+      const finalWeights = weights.some((w) => w > 0) ? weights : locations.map((l) => l.required);
+      const parts = largestRemainder(target, finalWeights);
+      next[p.id] = {};
+      locations.forEach((l, i) => {
+        next[p.id]![l.id] = parts[i] ?? 0;
+      });
+    }
+    return next;
+  }, [products, locations, suggestion]);
 
   const [cells, setCells] = useState<Record<string, Record<string, number>>>({});
 
@@ -180,6 +210,13 @@ function AllotmentPage() {
       }
       setCells(next);
     } else {
+      setCells(suggestedCells);
+    }
+  }, [products, locations, allocationsQuery.data, suggestedCells]);
+
+  function autoFill() {
+    const anyProduced = products.some((p) => p.produced > 0);
+    if (anyProduced) {
       setCells(
         computeAllotment({
           products: products.map((p) => ({ id: p.id, isVegan: p.isVegan, produced: p.produced })),
@@ -190,18 +227,13 @@ function AllotmentPage() {
           })),
         }).cells,
       );
+      toast.success("Recalculated from confirmed production");
+    } else {
+      setCells(suggestedCells);
+      toast.success("Filled with suggested allotment");
     }
-  }, [products, locations, allocationsQuery.data]);
-
-  function autoFill() {
-    setCells(
-      computeAllotment({
-        products: products.map((p) => ({ id: p.id, isVegan: p.isVegan, produced: p.produced })),
-        locations: locations.map((l) => ({ id: l.id, required: l.required, veganPct: l.veganPct })),
-      }).cells,
-    );
-    toast.success("Recalculated pro-rata");
   }
+
 
   const save = useMutation({
     mutationFn: async () => {
