@@ -8,14 +8,15 @@ Correct the automatic menu split and make the kitchen sheet reflect confirmed pr
 
 ### 1. Suggestion rules
 
-- Replace the current two-pool calculation with three explicit pools for every location and delivery day:
-  - 60% meat/regular
-  - 20% vegan
-  - 20% vegetarian
-- Apply the same rule on Storytel-only days; Storytel will no longer receive a 50% combined plant-based target.
+- Drive the plant-based share from each location's stored `vegan_target`, which from now on means vegan **and** vegetarian combined. The rest of the requirement is meat/regular.
+- Split that plant-based share by dish type:
+  - Storytel: 50% vegan, 50% vegetarian
+  - All other locations: 40% vegan, 60% vegetarian
+- Apply the same rule on Storytel-only days; no separate combined plant-based target for Storytel.
 - Use whole-number largest-remainder allocation so every location total still equals its exact requirement.
-- If one dish type is unavailable, move that type’s share to the closest available pool rather than dropping portions; document and test the fallback order.
+- If one dish type is unavailable that day, move that type's share to the closest available pool (vegan <-> vegetarian first, then regular) rather than dropping portions.
 - Keep manual production and allotment overrides unchanged.
+
 
 ### 2. Confirmed production precedence
 
