@@ -23,6 +23,7 @@ import { Route as AuthenticatedProductionRouteImport } from './routes/_authentic
 import { Route as AuthenticatedRequirementsRouteImport } from './routes/_authenticated/requirements'
 import { Route as AuthenticatedReturnsRouteImport } from './routes/_authenticated/returns'
 import { Route as AuthenticatedReturnsDashboardRouteImport } from './routes/_authenticated/returns-dashboard'
+import { Route as AuthenticatedSnacksRouteImport } from './routes/_authenticated/snacks'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -97,6 +98,11 @@ const AuthenticatedReturnsDashboardRoute =
     path: '/returns-dashboard',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSnacksRoute = AuthenticatedSnacksRouteImport.update({
+  id: '/snacks',
+  path: '/snacks',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -112,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/requirements': typeof AuthenticatedRequirementsRoute
   '/returns': typeof AuthenticatedReturnsRoute
   '/returns-dashboard': typeof AuthenticatedReturnsDashboardRoute
+  '/snacks': typeof AuthenticatedSnacksRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -127,6 +134,7 @@ export interface FileRoutesByTo {
   '/requirements': typeof AuthenticatedRequirementsRoute
   '/returns': typeof AuthenticatedReturnsRoute
   '/returns-dashboard': typeof AuthenticatedReturnsDashboardRoute
+  '/snacks': typeof AuthenticatedSnacksRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/_authenticated/requirements': typeof AuthenticatedRequirementsRoute
   '/_authenticated/returns': typeof AuthenticatedReturnsRoute
   '/_authenticated/returns-dashboard': typeof AuthenticatedReturnsDashboardRoute
+  '/_authenticated/snacks': typeof AuthenticatedSnacksRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -161,6 +170,7 @@ export interface FileRouteTypes {
     | '/requirements'
     | '/returns'
     | '/returns-dashboard'
+    | '/snacks'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/requirements'
     | '/returns'
     | '/returns-dashboard'
+    | '/snacks'
   id:
     | '__root__'
     | '/'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '/_authenticated/requirements'
     | '/_authenticated/returns'
     | '/_authenticated/returns-dashboard'
+    | '/_authenticated/snacks'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -301,6 +313,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedReturnsDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/snacks': {
+      id: '/_authenticated/snacks'
+      path: '/snacks'
+      fullPath: '/snacks'
+      preLoaderRoute: typeof AuthenticatedSnacksRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -315,6 +334,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedRequirementsRoute: typeof AuthenticatedRequirementsRoute
   AuthenticatedReturnsRoute: typeof AuthenticatedReturnsRoute
   AuthenticatedReturnsDashboardRoute: typeof AuthenticatedReturnsDashboardRoute
+  AuthenticatedSnacksRoute: typeof AuthenticatedSnacksRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -328,6 +348,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedRequirementsRoute: AuthenticatedRequirementsRoute,
   AuthenticatedReturnsRoute: AuthenticatedReturnsRoute,
   AuthenticatedReturnsDashboardRoute: AuthenticatedReturnsDashboardRoute,
+  AuthenticatedSnacksRoute: AuthenticatedSnacksRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
