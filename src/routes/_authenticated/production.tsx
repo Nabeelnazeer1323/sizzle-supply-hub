@@ -189,6 +189,8 @@ function ProductionPage() {
     onSuccess: () => {
       toast.success("Production confirmed");
       void queryClient.invalidateQueries({ queryKey: ["production", date] });
+      // The kitchen sheet reads production week-wide under its own key.
+      void queryClient.invalidateQueries({ queryKey: ["production-week"] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
