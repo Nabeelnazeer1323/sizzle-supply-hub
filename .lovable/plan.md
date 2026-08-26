@@ -29,16 +29,18 @@ Correct the automatic menu split and make the kitchen sheet reflect confirmed pr
 ### 3. A4 kitchen sheet redesign
 
 - Use the full portrait A4 page with two visually separate sections:
-  1. **Cook list** — prominent dish names, type marker, each covered delivery day, and a large bold total-to-cook figure.
-  2. **Delivery split** — a compact matrix grouped first by delivery day and then by location, with row and column totals.
+- Section A — **Production table** at the top: one row per dish with type marker and the covered delivery days, a large bold number to cook, and a grand total row.
+- Section B — **Per-location cards**: one small table for every location that receives food, listing only that location's dishes with quantities and a location total. Cards flow in a compact multi-column grid so all of them sit on the same A4 page under the production table.
+- Multi-day dishes: each location card is labelled with its delivery day, so a dish cooked once but delivered twice appears in the correct day's location card.
 - Increase core print typography and numeric emphasis, strengthen header hierarchy and table rules, and reduce nonessential copy.
 - Repeat essential context at the top: cook date, ISO week, covered delivery days, and grand total.
 - Keep app controls on screen but hide all navigation, selectors, and actions in print.
-- Add print-specific width, spacing, row-break, and overflow rules so the content uses one A4 page whenever the current week’s data can reasonably fit.
+- Add print-specific width, spacing, row-break, and overflow rules so the content uses one A4 page whenever the current week's data can reasonably fit.
 
 ## Verification
 
-- Add focused tests for 60/20/20 rounding, Storytel-only days, and missing vegan/vegetarian/meat pools.
+- Add focused tests for the vegan_target split, the 40/60 and Storytel 50/50 vegan-vegetarian sub-split, rounding, and missing dish pools.
+
 - Verify saved production above, below, and equal to the suggestion; confirm the sheet updates after save and after navigation.
 - Check a multi-day dish to ensure delivery-day splits remain separate while the cook total is combined correctly.
 - Print-preview the populated week 35 sheet at A4 portrait and check legibility, clipping, overflow, and page count.
