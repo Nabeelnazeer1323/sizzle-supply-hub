@@ -180,19 +180,6 @@ function KitchenSheetPage() {
       .filter((r) => r.days.length > 0 && r.days[0] === cookDay);
   }, [allProducts, locations, cookDay]);
 
-  /** Columns: every (delivery day, location) pair used by the dishes shown. */
-  const columns = useMemo(() => {
-    const list: { day: Weekday; location: Location; key: string }[] = [];
-    for (const d of WEEKDAYS) {
-      for (const l of locations) {
-        const used = rows.some(
-          (r) => r.days.includes(d) && (perDay.get(d)?.cells[r.product.id]?.[l.id] ?? 0) > 0,
-        );
-        if (used) list.push({ day: d, location: l, key: `${d}-${l.id}` });
-      }
-    }
-    return list;
-  }, [rows, locations, perDay]);
 
   function cell(productId: string, day: Weekday, locationId: string) {
     return perDay.get(day)?.cells[productId]?.[locationId] ?? 0;
