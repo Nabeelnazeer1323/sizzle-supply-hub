@@ -420,6 +420,7 @@ function KitchenSheetPage() {
           .kitchen-sheet table { page-break-inside: auto; }
           .kitchen-sheet tr { page-break-inside: avoid; }
           .location-card { break-inside: avoid; page-break-inside: avoid; }
+          .day-bar { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
         }
       `}</style>
     </div>
