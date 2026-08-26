@@ -29,7 +29,9 @@ const NAV: {
   { to: "/requirements", label: "Requirements", short: "Needs", icon: ClipboardList },
   { to: "/production", label: "Production", short: "Cook", icon: Utensils },
   { to: "/allotment", label: "Allotment", short: "Split", icon: Split },
+  { to: "/kitchen-sheet", label: "Kitchen sheet", short: "Sheet", icon: Printer },
   { to: "/packing", label: "Packing", short: "Pack", icon: PackageCheck },
+
   { to: "/returns", label: "Returns", short: "Returns", icon: Undo2 },
   { to: "/order-import", label: "Order Import", short: "Import", icon: Landmark },
   { to: "/orders", label: "Orders", short: "Orders", icon: ReceiptText },
