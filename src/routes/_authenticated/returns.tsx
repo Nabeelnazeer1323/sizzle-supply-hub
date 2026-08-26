@@ -127,24 +127,15 @@ function ReturnsPage() {
 
   const allocations = useMemo(() => allocationsQuery.data ?? [], [allocationsQuery.data]);
 
-  // `returned_at` is the real "already counted" marker. Until that column
-  // exists, every delivered row is still pending — quantity_returned defaults
-  // to 0 in the database, so it can never tell us anything.
-  const hasReturnedAt = allocations.some((a) => a.returned_at !== undefined);
-  const pending = useMemo(
-    () => (hasReturnedAt ? allocations.filter((a) => !a.returned_at) : allocations),
-    [allocations, hasReturnedAt],
-  );
-
-  const productIds = pending.map((a) => a.product_id).sort().join(",");
+  const productIds = allocations.map((a) => a.product_id).sort().join(",");
   const productsQuery = useQuery({
     queryKey: ["products-by-id", productIds],
-    enabled: pending.length > 0,
+    enabled: allocations.length > 0,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select(PRODUCT_COLUMNS)
-        .in("id", pending.map((a) => a.product_id));
+        .in("id", allocations.map((a) => a.product_id));
       if (error) throw error;
       return data as unknown as Product[];
     },
@@ -152,17 +143,9 @@ function ReturnsPage() {
 
   const products = useMemo(() => productsQuery.data ?? [], [productsQuery.data]);
 
-  // Show the run that is due today; if that has already been logged (or was
-  // never delivered), fall back to whatever is still outstanding further back
-  // so nothing gets stranded.
-  const inStrict = pending.filter(
-    (a) => a.delivery_date >= window_.strictStart && a.delivery_date <= window_.strictEnd,
-  );
-  const candidates = inStrict.length > 0 ? inStrict : pending;
-
   const rows = useMemo(
     () =>
-      candidates
+      allocations
         .map((a) => ({ ...a, product: products.find((p) => p.id === a.product_id) }))
         // For Storytel, keep the dishes that really ran that day.
         .filter(
@@ -176,14 +159,22 @@ function ReturnsPage() {
             a.delivery_date.localeCompare(b.delivery_date) ||
             (a.product?.name ?? "").localeCompare(b.product?.name ?? ""),
         ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [candidates, products, window_.mode],
+    [allocations, products, window_.mode],
   );
 
+  const allLogged = rows.length > 0 && rows.every((r) => Boolean(r.returned_at));
+
   const [draft, setDraft] = useState<Record<string, number>>({});
+  // Seed already-logged rows with their saved numbers so they stay editable.
   useEffect(() => {
-    setDraft({});
-  }, [locationId, window_.start, window_.end]);
+    setDraft(
+      Object.fromEntries(
+        rows.filter((r) => r.returned_at).map((r) => [r.id, r.quantity_returned ?? 0]),
+      ),
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationId, window_.start, window_.end, allocationsQuery.dataUpdatedAt]);
+
 
   const save = useMutation({
     mutationFn: async () => {
