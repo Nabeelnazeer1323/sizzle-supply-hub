@@ -40,6 +40,55 @@ alter table public.production drop column if exists year;
 alter table public.allocations drop column if exists week_number;
 alter table public.allocations drop column if exists year;`;
 
+const SNACK_SQL = `-- Snack inventory: batch deliveries + manual adjustments.
+-- Stock is never stored; it is delivered - sold (from orders) + adjustments.
+create table if not exists public.snack_batches (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  location_id uuid not null references public.locations(id) on delete cascade,
+  delivered_on date not null default current_date,
+  quantity integer not null check (quantity > 0),
+  unit_cost numeric(10,2),
+  best_before date,
+  note text,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.snack_adjustments (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid not null references public.products(id) on delete cascade,
+  location_id uuid not null references public.locations(id) on delete cascade,
+  batch_id uuid references public.snack_batches(id) on delete set null,
+  occurred_on date not null default current_date,
+  -- signed against stock: negative removes units, positive adds them back
+  quantity_delta integer not null,
+  reason text not null default 'OTHER',
+  note text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists snack_batches_loc_prod_idx
+  on public.snack_batches (location_id, product_id);
+create index if not exists snack_batches_best_before_idx
+  on public.snack_batches (best_before);
+create index if not exists snack_adjustments_loc_prod_idx
+  on public.snack_adjustments (location_id, product_id);
+
+do $$
+declare t text;
+begin
+  foreach t in array array['snack_batches','snack_adjustments'] loop
+    execute format('grant select, insert, update, delete on public.%I to authenticated', t);
+    execute format('grant all on public.%I to service_role', t);
+    execute format('alter table public.%I enable row level security', t);
+    begin
+      execute format(
+        'create policy "Staff full access" on public.%I for all to authenticated using (true) with check (true)', t);
+    exception when duplicate_object then null; end;
+  end loop;
+end $$;`;
+
+
 
 export const Route = createFileRoute("/setup")({
   head: () => ({
