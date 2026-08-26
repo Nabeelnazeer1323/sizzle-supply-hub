@@ -1,7 +1,8 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { Printer, Wand2 } from "lucide-react";
 
 import {
   supabase,
@@ -13,10 +14,13 @@ import {
 } from "@/lib/supabase";
 import { currentWeek, isoWeekDate } from "@/lib/week";
 import { categoryLabel, productCategory } from "@/lib/category";
+import { isPlantBased, plantSharePct, productsForDay } from "@/lib/serving";
+import { suggestForDay } from "@/lib/suggest";
 import { WeekBar, normalizeDay } from "@/components/WeekBar";
 import { QtyStepper } from "@/components/QtyStepper";
 import { SaveBar } from "@/components/SaveBar";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 type Search = { year: number; week: number; day: string };
@@ -44,10 +48,10 @@ export const Route = createFileRoute("/_authenticated/production")({
   component: ProductionPage,
 });
 
-/** Dishes on the menu for a given week + delivery day. */
-export function useDayProducts(week: number, day: string) {
+/** All dishes on the menu for a week (day filtering happens per location). */
+export function useWeekProducts(week: number) {
   return useQuery({
-    queryKey: ["products", week, day],
+    queryKey: ["products-week", week],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
@@ -55,9 +59,7 @@ export function useDayProducts(week: number, day: string) {
         .eq("week_number", week)
         .order("name");
       if (error) throw error;
-      return (data as unknown as Product[]).filter(
-        (p) => (p.delivery_day ?? "").toLowerCase() === day.toLowerCase(),
-      );
+      return data as unknown as Product[];
     },
   });
 }
@@ -68,7 +70,7 @@ function ProductionPage() {
   const date = isoWeekDate(year, week, day);
   const queryClient = useQueryClient();
 
-  const productsQuery = useDayProducts(week, day);
+  const weekProductsQuery = useWeekProducts(week);
 
   const productionQuery = useQuery({
     queryKey: ["production", date],
@@ -106,22 +108,59 @@ function ProductionPage() {
     },
   });
 
+  const locations = useMemo(() => locationsQuery.data ?? [], [locationsQuery.data]);
+  const requirements = requirementsQuery.data ?? [];
+
+  // Dishes that reach at least one location on this weekday — this includes
+  // Storytel's extra day for dishes that span Monday+Tuesday etc.
+  const products = useMemo(
+    () => productsForDay(weekProductsQuery.data ?? [], locations, day),
+    [weekProductsQuery.data, locations, day],
+  );
+
+  const suggestion = useMemo(
+    () =>
+      suggestForDay({
+        products,
+        locations: locations.map((l) => ({
+          ...l,
+          required:
+            requirementsQuery.data?.find((r) => r.location_id === l.id)?.total_required ?? 0,
+        })),
+        weekday: day,
+      }),
+    [products, locations, requirementsQuery.data, day],
+  );
+
   const [draft, setDraft] = useState<Record<string, number>>({});
 
   useEffect(() => {
-    if (!productsQuery.data || !productionQuery.data) return;
+    if (!weekProductsQuery.data || !productionQuery.data || !locationsQuery.data) return;
     const next: Record<string, number> = {};
-    for (const p of productsQuery.data) {
+    for (const p of products) {
       const row = productionQuery.data.find((r) => r.product_id === p.id);
-      next[p.id] = row ? row.quantity_produced : 0;
+      next[p.id] = row ? row.quantity_produced : (suggestion.perProduct[p.id] ?? 0);
     }
     setDraft(next);
-  }, [productsQuery.data, productionQuery.data]);
+  }, [
+    products,
+    productionQuery.data,
+    weekProductsQuery.data,
+    locationsQuery.data,
+    suggestion,
+  ]);
+
+  function useSuggestions() {
+    const next: Record<string, number> = {};
+    for (const p of products) next[p.id] = suggestion.perProduct[p.id] ?? 0;
+    setDraft(next);
+    toast.success("Filled with suggested numbers");
+  }
 
   const save = useMutation({
     mutationFn: async () => {
       const existing = productionQuery.data ?? [];
-      for (const p of productsQuery.data ?? []) {
+      for (const p of products) {
         const qty = draft[p.id] ?? 0;
         const row = existing.find((r) => r.product_id === p.id);
         if (qty <= 0) {
@@ -148,20 +187,16 @@ function ProductionPage() {
       }
     },
     onSuccess: () => {
-      toast.success("Production registered");
+      toast.success("Production confirmed");
       void queryClient.invalidateQueries({ queryKey: ["production", date] });
     },
     onError: (e: Error) => toast.error(e.message),
   });
 
-  const products = productsQuery.data ?? [];
-  const requirements = requirementsQuery.data ?? [];
-  const locations = locationsQuery.data ?? [];
-
   const demand = requirements.reduce(
     (acc, r) => {
       const loc = locations.find((l) => l.id === r.location_id);
-      const pct = loc?.vegan_target ?? 25;
+      const pct = loc ? plantSharePct(loc) : 40;
       acc.total += r.total_required;
       acc.vegan += Math.round((r.total_required * pct) / 100);
       return acc;
@@ -173,7 +208,7 @@ function ProductionPage() {
     (acc, p) => {
       const qty = draft[p.id] ?? 0;
       acc.total += qty;
-      if (p.is_vegan) acc.vegan += qty;
+      if (isPlantBased(p)) acc.vegan += qty;
       return acc;
     },
     { total: 0, vegan: 0 },
@@ -184,22 +219,38 @@ function ProductionPage() {
       <div>
         <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Production register</h1>
         <p className="text-sm text-muted-foreground">
-          This day&apos;s menu. Enter what the kitchen actually produced.
+          This day&apos;s menu with suggested numbers from the requirements. Adjust and confirm what
+          the kitchen actually produced.
         </p>
       </div>
 
       <WeekBar year={year} week={week} day={day} />
 
       <div className="grid grid-cols-3 gap-2">
-        <Stat label="Required" value={demand.total} hint={`${demand.vegan} vegan`} />
-        <Stat label="Produced" value={produced.total} hint={`${produced.vegan} vegan`} />
+        <Stat label="Required" value={demand.total} hint={`${demand.vegan} plant-based`} />
+        <Stat label="Produced" value={produced.total} hint={`${produced.vegan} plant-based`} />
         <Stat
           label="Balance"
           value={produced.total - demand.total}
-          hint={`vegan ${produced.vegan - demand.vegan}`}
+          hint={`plant-based ${produced.vegan - demand.vegan}`}
           tone={produced.total - demand.total < 0 ? "bad" : "good"}
         />
       </div>
+
+      {products.length > 0 && (
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={useSuggestions}>
+            <Wand2 className="size-4" />
+            Use suggestions
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/kitchen-sheet" search={{ year, week, day }}>
+              <Printer className="size-4" />
+              Kitchen sheet
+            </Link>
+          </Button>
+        </div>
+      )}
 
       {products.length === 0 ? (
         <Card>
@@ -209,36 +260,48 @@ function ProductionPage() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {products.map((p) => (
-            <Card key={p.id}>
-              <CardContent className="flex items-center gap-3 py-3">
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{p.name}</div>
-                  <div className="mt-1 flex flex-wrap items-center gap-1">
-                    {p.is_vegan ? (
-                      <Badge className="text-[10px]">Vegan</Badge>
-                    ) : p.is_vegetarian ? (
-                      <Badge variant="secondary" className="text-[10px]">
-                        Vegetarian
-                      </Badge>
-                    ) : (
+          {products.map((p) => {
+            const suggested = suggestion.perProduct[p.id] ?? 0;
+            const value = draft[p.id] ?? 0;
+            return (
+              <Card key={p.id}>
+                <CardContent className="flex items-center gap-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{p.name}</div>
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      {p.is_vegan ? (
+                        <Badge className="text-[10px]">Vegan</Badge>
+                      ) : p.is_vegetarian ? (
+                        <Badge variant="secondary" className="text-[10px]">
+                          Vegetarian
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[10px]">
+                          Regular
+                        </Badge>
+                      )}
                       <Badge variant="outline" className="text-[10px]">
-                        Regular
+                        {categoryLabel(productCategory(p))}
                       </Badge>
-                    )}
-                    <Badge variant="outline" className="text-[10px]">
-                      {categoryLabel(productCategory(p))}
-                    </Badge>
+                      <button
+                        type="button"
+                        className="text-[11px] text-muted-foreground underline-offset-2 hover:underline"
+                        onClick={() => setDraft((d) => ({ ...d, [p.id]: suggested }))}
+                      >
+                        suggested {suggested}
+                        {value !== suggested ? " · reset" : ""}
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <QtyStepper
-                  ariaLabel={`${p.name} produced`}
-                  value={draft[p.id] ?? 0}
-                  onChange={(v) => setDraft((d) => ({ ...d, [p.id]: v }))}
-                />
-              </CardContent>
-            </Card>
-          ))}
+                  <QtyStepper
+                    ariaLabel={`${p.name} produced`}
+                    value={value}
+                    onChange={(v) => setDraft((d) => ({ ...d, [p.id]: v }))}
+                  />
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
 
@@ -246,7 +309,7 @@ function ProductionPage() {
         summary={`${products.length} dishes · ${produced.total} portions`}
         onSave={() => save.mutate()}
         saving={save.isPending}
-        label="Save production"
+        label="Confirm production"
       />
     </div>
   );
