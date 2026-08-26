@@ -62,8 +62,8 @@ export const Route = createFileRoute("/_authenticated/allotment")({
 
 function AllotmentPage() {
   const search = Route.useSearch();
-  const navigate = Route.useNavigate();
   const { year, week, day: rawDay } = search;
+
   const day = normalizeDay(rawDay);
   const date = isoWeekDate(year, week, day);
   const queryClient = useQueryClient();
