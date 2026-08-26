@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useSnackInventory } from "@/lib/snacks-data";
 import { money, reasonLabel, stockTone, type StockLine } from "@/lib/snacks";
-import { formatDate, todayIso } from "@/lib/week";
+import { defaultWeekSearch, formatDate, todayIso } from "@/lib/week";
 import { QtyStepper } from "@/components/QtyStepper";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
