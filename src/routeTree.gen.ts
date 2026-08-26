@@ -15,6 +15,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AuthenticatedAllotmentRouteImport } from './routes/_authenticated/allotment'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedKitchenSheetRouteImport } from './routes/_authenticated/kitchen-sheet'
 import { Route as AuthenticatedOrderImportRouteImport } from './routes/_authenticated/order-import'
 import { Route as AuthenticatedOrdersRouteImport } from './routes/_authenticated/orders'
 import { Route as AuthenticatedPackingRouteImport } from './routes/_authenticated/packing'
@@ -51,6 +52,12 @@ const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedKitchenSheetRoute =
+  AuthenticatedKitchenSheetRouteImport.update({
+    id: '/kitchen-sheet',
+    path: '/kitchen-sheet',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedOrderImportRoute =
   AuthenticatedOrderImportRouteImport.update({
     id: '/order-import',
@@ -90,6 +97,7 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/allotment': typeof AuthenticatedAllotmentRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/kitchen-sheet': typeof AuthenticatedKitchenSheetRoute
   '/order-import': typeof AuthenticatedOrderImportRoute
   '/orders': typeof AuthenticatedOrdersRoute
   '/packing': typeof AuthenticatedPackingRoute
@@ -103,6 +111,7 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/allotment': typeof AuthenticatedAllotmentRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/kitchen-sheet': typeof AuthenticatedKitchenSheetRoute
   '/order-import': typeof AuthenticatedOrderImportRoute
   '/orders': typeof AuthenticatedOrdersRoute
   '/packing': typeof AuthenticatedPackingRoute
@@ -118,6 +127,7 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/_authenticated/allotment': typeof AuthenticatedAllotmentRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/kitchen-sheet': typeof AuthenticatedKitchenSheetRoute
   '/_authenticated/order-import': typeof AuthenticatedOrderImportRoute
   '/_authenticated/orders': typeof AuthenticatedOrdersRoute
   '/_authenticated/packing': typeof AuthenticatedPackingRoute
@@ -133,6 +143,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/allotment'
     | '/dashboard'
+    | '/kitchen-sheet'
     | '/order-import'
     | '/orders'
     | '/packing'
@@ -146,6 +157,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/allotment'
     | '/dashboard'
+    | '/kitchen-sheet'
     | '/order-import'
     | '/orders'
     | '/packing'
@@ -160,6 +172,7 @@ export interface FileRouteTypes {
     | '/setup'
     | '/_authenticated/allotment'
     | '/_authenticated/dashboard'
+    | '/_authenticated/kitchen-sheet'
     | '/_authenticated/order-import'
     | '/_authenticated/orders'
     | '/_authenticated/packing'
@@ -219,6 +232,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/kitchen-sheet': {
+      id: '/_authenticated/kitchen-sheet'
+      path: '/kitchen-sheet'
+      fullPath: '/kitchen-sheet'
+      preLoaderRoute: typeof AuthenticatedKitchenSheetRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/order-import': {
       id: '/_authenticated/order-import'
       path: '/order-import'
@@ -267,6 +287,7 @@ declare module '@tanstack/react-router' {
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAllotmentRoute: typeof AuthenticatedAllotmentRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedKitchenSheetRoute: typeof AuthenticatedKitchenSheetRoute
   AuthenticatedOrderImportRoute: typeof AuthenticatedOrderImportRoute
   AuthenticatedOrdersRoute: typeof AuthenticatedOrdersRoute
   AuthenticatedPackingRoute: typeof AuthenticatedPackingRoute
@@ -278,6 +299,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAllotmentRoute: AuthenticatedAllotmentRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedKitchenSheetRoute: AuthenticatedKitchenSheetRoute,
   AuthenticatedOrderImportRoute: AuthenticatedOrderImportRoute,
   AuthenticatedOrdersRoute: AuthenticatedOrdersRoute,
   AuthenticatedPackingRoute: AuthenticatedPackingRoute,
