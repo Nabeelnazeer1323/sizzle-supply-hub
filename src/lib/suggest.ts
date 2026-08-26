@@ -1,5 +1,5 @@
 import { largestRemainder } from "@/lib/allotment";
-import { isPlantBased, plantSharePct, servesOn } from "@/lib/serving";
+import { plantSharePct, servesOn, veganShareOfPlantPct } from "@/lib/serving";
 import type { Location, Product } from "@/lib/supabase";
 
 export type SuggestProduct = Pick<
@@ -7,7 +7,7 @@ export type SuggestProduct = Pick<
   "id" | "delivery_day" | "storytel_delivery_days" | "is_vegan" | "is_vegetarian"
 >;
 
-export type SuggestLocation = Pick<Location, "id" | "name" | "delivery_days"> & {
+export type SuggestLocation = Pick<Location, "id" | "name" | "delivery_days" | "vegan_target"> & {
   /** Lunches required at this location on the day. */
   required: number;
 };
@@ -22,9 +22,13 @@ export type Suggestion = {
 
 /**
  * Turn the registered requirements into a proposed production + allotment for
- * one weekday: each location's requirement is split into a plant-based pool
- * (vegan or vegetarian dishes) and a regular pool, then shared evenly across
- * that location's dishes for the day.
+ * one weekday.
+ *
+ * Each location's requirement is split by its stored vegan_target into a
+ * plant-based share (vegan + vegetarian) and a regular share. The plant-based
+ * share is then split between vegan and vegetarian dishes: 50/50 for Storytel,
+ * 40/60 everywhere else. Empty pools hand their portion to the closest
+ * available pool (vegan <-> vegetarian first, then regular).
  */
 export function suggestForDay({
   products,
@@ -48,24 +52,41 @@ export function suggestForDay({
     const dishes = products.filter((p) => servesOn(p, loc, weekday));
     if (dishes.length === 0) continue;
 
-    const plant = dishes.filter(isPlantBased);
-    const regular = dishes.filter((p) => !isPlantBased(p));
+    const vegan = dishes.filter((p) => p.is_vegan);
+    const vegetarian = dishes.filter((p) => !p.is_vegan && p.is_vegetarian);
+    const regular = dishes.filter((p) => !p.is_vegan && !p.is_vegetarian);
 
-    const share = plantSharePct(loc);
-    let plantNeed = Math.round((required * share) / 100);
-    let regularNeed = required - plantNeed;
+    const plantNeedTotal = Math.round((required * plantSharePct(loc)) / 100);
+    let regularNeed = required - plantNeedTotal;
+    let veganNeed = Math.round((plantNeedTotal * veganShareOfPlantPct(loc)) / 100);
+    let vegetarianNeed = plantNeedTotal - veganNeed;
 
-    // If one pool has no dishes, its portion goes to the other.
-    if (plant.length === 0) {
-      regularNeed += plantNeed;
-      plantNeed = 0;
+    // Fallback: vegan <-> vegetarian first, then whatever is left to regular.
+    if (vegan.length === 0) {
+      if (vegetarian.length > 0) vegetarianNeed += veganNeed;
+      else regularNeed += veganNeed;
+      veganNeed = 0;
     }
-    if (regular.length === 0) {
-      plantNeed += regularNeed;
+    if (vegetarian.length === 0) {
+      if (vegan.length > 0) veganNeed += vegetarianNeed;
+      else regularNeed += vegetarianNeed;
+      vegetarianNeed = 0;
+    }
+    if (regular.length === 0 && regularNeed > 0) {
+      if (vegan.length > 0 && vegetarian.length > 0) {
+        const toVegan = Math.round((regularNeed * veganShareOfPlantPct(loc)) / 100);
+        veganNeed += toVegan;
+        vegetarianNeed += regularNeed - toVegan;
+      } else if (vegan.length > 0) {
+        veganNeed += regularNeed;
+      } else {
+        vegetarianNeed += regularNeed;
+      }
       regularNeed = 0;
     }
 
-    assign(plant, plantNeed);
+    assign(vegan, veganNeed);
+    assign(vegetarian, vegetarianNeed);
     assign(regular, regularNeed);
 
     function assign(pool: SuggestProduct[], amount: number) {
@@ -73,7 +94,7 @@ export function suggestForDay({
       const parts = largestRemainder(amount, new Array(pool.length).fill(1));
       pool.forEach((p, i) => {
         const qty = parts[i] ?? 0;
-        cells[p.id]![loc.id] = qty;
+        cells[p.id]![loc.id] = (cells[p.id]![loc.id] ?? 0) + qty;
         perProduct[p.id] = (perProduct[p.id] ?? 0) + qty;
       });
     }
