@@ -222,10 +222,11 @@ function ReturnsPage() {
         <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Returns pickup</h1>
         <p className="text-sm text-muted-foreground">
           {window_.mode === "storytel"
-            ? `Food delivered ${formatDate(window_.end)} (plus anything still open).`
-            : `Everything delivered last week, up to ${formatDate(window_.end)}.`}{" "}
+            ? `Food delivered ${formatDate(window_.end)}.`
+            : `Everything delivered last week (${formatDate(window_.start)}–${formatDate(window_.end)}).`}{" "}
           If nothing came back, tap All sold.
         </p>
+
       </div>
 
       <WeekBar year={year} week={week} day={day} label="Pickup week" />
