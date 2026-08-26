@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
+  BarChart3,
   ChefHat,
   LayoutDashboard,
   Landmark,
