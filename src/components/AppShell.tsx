@@ -35,6 +35,12 @@ const NAV: {
   { to: "/packing", label: "Packing", short: "Pack", icon: PackageCheck },
 
   { to: "/returns", label: "Returns", short: "Returns", icon: Undo2 },
+  {
+    to: "/returns-dashboard",
+    label: "Returns dashboard",
+    short: "Waste",
+    icon: BarChart3,
+  },
   { to: "/order-import", label: "Order Import", short: "Import", icon: Landmark },
   { to: "/orders", label: "Orders", short: "Orders", icon: ReceiptText },
 ];
