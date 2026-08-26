@@ -7,6 +7,8 @@ import {
   ClipboardList,
   LogOut,
   PackageCheck,
+  Printer,
+
   ReceiptText,
   Split,
   Undo2,
