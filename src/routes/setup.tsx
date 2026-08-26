@@ -42,30 +42,43 @@ alter table public.allocations drop column if exists year;`;
 
 const SNACK_SQL = `-- Snack inventory: batch deliveries + manual adjustments.
 -- Stock is never stored; it is delivered - sold (from orders) + adjustments.
-create table if not exists public.snack_batches (
-  id uuid primary key default gen_random_uuid(),
-  product_id uuid not null references public.products(id) on delete cascade,
-  location_id uuid not null references public.locations(id) on delete cascade,
-  delivered_on date not null default current_date,
-  quantity integer not null check (quantity > 0),
-  unit_cost numeric(10,2),
-  best_before date,
-  note text,
-  created_at timestamptz not null default now()
-);
+-- The product_id / location_id column types are looked up from your existing
+-- products and locations tables so the foreign keys always match.
+do $$
+declare
+  p_type text;
+  l_type text;
+begin
+  select data_type into p_type from information_schema.columns
+    where table_schema = 'public' and table_name = 'products' and column_name = 'id';
+  select data_type into l_type from information_schema.columns
+    where table_schema = 'public' and table_name = 'locations' and column_name = 'id';
 
-create table if not exists public.snack_adjustments (
-  id uuid primary key default gen_random_uuid(),
-  product_id uuid not null references public.products(id) on delete cascade,
-  location_id uuid not null references public.locations(id) on delete cascade,
-  batch_id uuid references public.snack_batches(id) on delete set null,
-  occurred_on date not null default current_date,
-  -- signed against stock: negative removes units, positive adds them back
-  quantity_delta integer not null,
-  reason text not null default 'OTHER',
-  note text,
-  created_at timestamptz not null default now()
-);
+  execute format('create table if not exists public.snack_batches (
+    id uuid primary key default gen_random_uuid(),
+    product_id %s not null references public.products(id) on delete cascade,
+    location_id %s not null references public.locations(id) on delete cascade,
+    delivered_on date not null default current_date,
+    quantity integer not null check (quantity > 0),
+    unit_cost numeric(10,2),
+    best_before date,
+    note text,
+    created_at timestamptz not null default now()
+  )', p_type, l_type);
+
+  execute format('create table if not exists public.snack_adjustments (
+    id uuid primary key default gen_random_uuid(),
+    product_id %s not null references public.products(id) on delete cascade,
+    location_id %s not null references public.locations(id) on delete cascade,
+    batch_id uuid references public.snack_batches(id) on delete set null,
+    occurred_on date not null default current_date,
+    -- signed against stock: negative removes units, positive adds them back
+    quantity_delta integer not null,
+    reason text not null default ''OTHER'',
+    note text,
+    created_at timestamptz not null default now()
+  )', p_type, l_type);
+end $$;
 
 create index if not exists snack_batches_loc_prod_idx
   on public.snack_batches (location_id, product_id);
