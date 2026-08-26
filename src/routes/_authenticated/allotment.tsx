@@ -303,6 +303,17 @@ function AllotmentPage() {
 
       <WeekBar year={year} week={week} day={day} />
 
+      <div className="flex justify-end">
+        <Button asChild variant="outline" size="sm">
+          <Link to="/kitchen-sheet" search={{ year, week, day }}>
+            <Printer className="size-4" />
+            Kitchen sheet
+          </Link>
+        </Button>
+      </div>
+
+
+
 
 
 
