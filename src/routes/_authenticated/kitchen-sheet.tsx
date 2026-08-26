@@ -212,6 +212,16 @@ function KitchenSheetPage() {
 
   const grandTotal = totals.reduce((s, t) => s + t.cook, 0);
 
+  const DAY_COLORS: Record<Weekday, { bg: string; text: string }> = {
+    Monday: { bg: "#2563eb", text: "#ffffff" },
+    Tuesday: { bg: "#16a34a", text: "#ffffff" },
+    Wednesday: { bg: "#d97706", text: "#ffffff" },
+    Thursday: { bg: "#9333ea", text: "#ffffff" },
+    Friday: { bg: "#dc2626", text: "#ffffff" },
+    Saturday: { bg: "#0891b2", text: "#ffffff" },
+    Sunday: { bg: "#475569", text: "#ffffff" },
+  };
+
   /** One card per (delivery day, location) that actually receives something. */
   const locationCards = useMemo(() => {
     const cards: {
@@ -348,12 +358,20 @@ function KitchenSheetPage() {
                   key={card.key}
                   className="location-card break-inside-avoid rounded border border-foreground/40"
                 >
-                  <div className="flex items-baseline justify-between gap-2 border-b border-foreground/30 bg-muted px-2 py-1">
+                  <div
+                    className="day-bar border-b border-foreground/30 px-2 py-1"
+                    style={{
+                      backgroundColor: DAY_COLORS[card.day]!.bg,
+                      color: DAY_COLORS[card.day]!.text,
+                    }}
+                  >
+                    <span className="text-[13px] font-black uppercase leading-tight tracking-wide">
+                      {card.day.slice(0, 3)}
+                    </span>
+                  </div>
+                  <div className="border-b border-foreground/30 px-2 py-1">
                     <span className="text-[13px] font-bold leading-tight">
                       {card.location.name}
-                    </span>
-                    <span className="text-[10px] font-semibold uppercase text-muted-foreground">
-                      {card.day.slice(0, 3)}
                     </span>
                   </div>
                   <table className="w-full border-collapse text-[12px]">
