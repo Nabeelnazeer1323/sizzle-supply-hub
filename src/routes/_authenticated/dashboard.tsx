@@ -307,6 +307,15 @@ function DashboardPage() {
         yearToDate={analyticsYearToDate}
       />
 
+      <DietAnalytics
+        period={analyticsPeriod}
+        anchorDate={analyticsDate}
+        fromYear={analyticsFromYear}
+        toYear={analyticsToYear}
+        yearToDate={analyticsYearToDate}
+      />
+
+
       {analyticsPeriod === "day" ? (
         <>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
