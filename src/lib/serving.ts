@@ -10,8 +10,18 @@ function sameDay(a: string | null | undefined, b: string): boolean {
   return String(a ?? "").toLowerCase() === b.toLowerCase();
 }
 
-/** Share of a location's lunches that should be plant-based. */
-export function plantSharePct(location: Pick<Location, "name">): number {
+/**
+ * Share of a location's lunches that should be plant-based (vegan AND
+ * vegetarian together). Comes from the location's stored vegan_target.
+ */
+export function plantSharePct(location: Pick<Location, "vegan_target">): number {
+  const target = Number(location.vegan_target ?? 40);
+  if (!Number.isFinite(target)) return 40;
+  return Math.min(100, Math.max(0, target));
+}
+
+/** Within the plant-based share, how much of it is vegan (rest vegetarian). */
+export function veganShareOfPlantPct(location: Pick<Location, "name">): number {
   return isStorytel(location) ? 50 : 40;
 }
 
