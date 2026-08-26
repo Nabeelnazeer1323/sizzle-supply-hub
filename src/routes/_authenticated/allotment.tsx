@@ -66,7 +66,7 @@ function AllotmentPage() {
   const queryClient = useQueryClient();
 
   const allProductsQuery = useQuery({
-    queryKey: ["products", week, day],
+    queryKey: ["products-week", week],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
@@ -74,15 +74,13 @@ function AllotmentPage() {
         .eq("week_number", week)
         .order("name");
       if (error) throw error;
-      return (data as unknown as Product[]).filter(
-        (p) => (p.delivery_day ?? "").toLowerCase() === day.toLowerCase(),
-      );
+      return data as unknown as Product[];
     },
   });
 
-  const dayProducts = useMemo(() => allProductsQuery.data ?? [], [allProductsQuery.data]);
-  const categories: Category[] = [DEFAULT_CATEGORY];
   const category: Category = DEFAULT_CATEGORY;
+
+
 
 
   const productionQuery = useQuery({
