@@ -198,38 +198,68 @@ function KitchenSheetPage() {
     return perDay.get(day)?.cells[productId]?.[locationId] ?? 0;
   }
 
-  function productionFor(productId: string, day: Weekday) {
+  /** Confirmed production for a dish on a delivery day, or null if not saved. */
+  function productionFor(productId: string, day: Weekday): number | null {
     const date = weekDates.find((w) => w.day === day)?.date;
-    return (
-      (productionQuery.data ?? []).find(
-        (r) => r.product_id === productId && r.production_date === date,
-      )?.quantity_produced ?? 0
+    const row = (productionQuery.data ?? []).find(
+      (r) => r.product_id === productId && r.production_date === date,
     );
+    return row ? row.quantity_produced : null;
   }
 
-  const dayGroups = useMemo(() => {
-    const groups: { day: Weekday; span: number }[] = [];
-    for (const c of columns) {
-      const last = groups[groups.length - 1];
-      if (last && last.day === c.day) last.span += 1;
-      else groups.push({ day: c.day, span: 1 });
-    }
-    return groups;
-  }, [columns]);
-
-  const totals = rows.map((r) => {
-    const perDayTotals = r.days.map((d) => ({
-      day: d,
-      allotted: columns
-        .filter((c) => c.day === d)
-        .reduce((s, c) => s + cell(r.product.id, d, c.location.id), 0),
-      produced: productionFor(r.product.id, d),
-    }));
-    const cook = perDayTotals.reduce((s, t) => s + Math.max(t.allotted, t.produced), 0);
-    return { ...r, perDayTotals, cook };
-  });
+  /** Dish rows with per-day numbers; confirmed production always wins. */
+  const totals = useMemo(
+    () =>
+      rows.map((r) => {
+        const perDayTotals = r.days.map((d) => {
+          const allotted = locations.reduce((s, l) => s + cell(r.product.id, d, l.id), 0);
+          const produced = productionFor(r.product.id, d);
+          return { day: d, allotted, produced, cook: produced ?? allotted };
+        });
+        const cook = perDayTotals.reduce((s, t) => s + t.cook, 0);
+        return { ...r, perDayTotals, cook };
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, locations, perDay, productionQuery.data, weekDates],
+  );
 
   const grandTotal = totals.reduce((s, t) => s + t.cook, 0);
+
+  /** One card per (delivery day, location) that actually receives something. */
+  const locationCards = useMemo(() => {
+    const cards: {
+      key: string;
+      day: Weekday;
+      location: Location;
+      lines: { id: string; name: string; plant: boolean; qty: number }[];
+      total: number;
+    }[] = [];
+    for (const d of WEEKDAYS) {
+      for (const l of locations) {
+        const lines = totals
+          .filter((t) => t.days.includes(d))
+          .map((t) => ({
+            id: t.product.id,
+            name: t.product.name,
+            plant: isPlantBased(t.product),
+            qty: cell(t.product.id, d, l.id),
+          }))
+          .filter((line) => line.qty > 0);
+        if (lines.length === 0) continue;
+        cards.push({
+          key: `${d}-${l.id}`,
+          day: d,
+          location: l,
+          lines,
+          total: lines.reduce((s, line) => s + line.qty, 0),
+        });
+      }
+    }
+    return cards;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totals, locations, perDay]);
+
+  const coveredDays = Array.from(new Set(totals.flatMap((t) => t.days)));
 
   return (
     <div className="space-y-4">
@@ -241,7 +271,9 @@ function KitchenSheetPage() {
         </p>
       </div>
 
-      <WeekBar year={year} week={week} day={cookDay} label="Cook week" />
+      <div className="print:hidden">
+        <WeekBar year={year} week={week} day={cookDay} label="Cook week" />
+      </div>
 
       <div className="flex justify-end print:hidden">
         <Button variant="outline" onClick={() => window.print()}>
@@ -257,107 +289,119 @@ function KitchenSheetPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="kitchen-sheet rounded-lg border border-border bg-card p-4 print:rounded-none print:border-0 print:p-0">
-          <div className="mb-3 flex items-baseline justify-between gap-4">
+        <div className="kitchen-sheet rounded-lg border border-border bg-card p-5 print:rounded-none print:border-0 print:p-0">
+          <header className="mb-4 flex items-end justify-between gap-4 border-b-2 border-foreground pb-2">
             <div>
-              <h2 className="text-lg font-semibold">Production — {formatDate(cookDate)}</h2>
-              <p className="text-xs text-muted-foreground">
-                Week {week} · delivered{" "}
-                {Array.from(new Set(totals.flatMap((t) => t.days))).join(", ")}
+              <h2 className="text-2xl font-bold leading-tight">Production — {formatDate(cookDate)}</h2>
+              <p className="text-sm font-medium text-muted-foreground">
+                Week {week} · delivered {coveredDays.join(" + ")}
               </p>
             </div>
             <div className="text-right">
-              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
                 Total portions
               </div>
-              <div className="text-2xl font-bold tabular-nums">{grandTotal}</div>
+              <div className="text-4xl font-black leading-none tabular-nums">{grandTotal}</div>
             </div>
-          </div>
+          </header>
 
-          <div className="overflow-x-auto print:overflow-visible">
-            <table className="w-full border-collapse text-[11px]">
+          <section className="mb-5">
+            <h3 className="mb-1 text-sm font-bold uppercase tracking-wide">Cook today</h3>
+            <table className="w-full border-collapse text-[13px]">
               <thead>
-                <tr>
-                  <th
-                    rowSpan={2}
-                    className="border border-border p-1 text-left align-bottom font-semibold"
-                  >
-                    Dish
+                <tr className="bg-muted">
+                  <th className="border border-foreground/30 p-1.5 text-left font-bold">Dish</th>
+                  <th className="border border-foreground/30 p-1.5 text-left font-bold">Type</th>
+                  <th className="border border-foreground/30 p-1.5 text-left font-bold">
+                    Delivery days
                   </th>
-                  {dayGroups.map((g) => (
-                    <th
-                      key={g.day}
-                      colSpan={g.span}
-                      className="border border-border bg-muted p-1 text-center font-semibold"
-                    >
-                      {g.day}
-                    </th>
-                  ))}
-                  <th
-                    rowSpan={2}
-                    className="border border-border p-1 text-center align-bottom font-semibold"
-                  >
-                    COOK
-                  </th>
-                </tr>
-                <tr>
-                  {columns.map((c) => (
-                    <th key={c.key} className="border border-border p-1 text-center font-medium">
-                      {c.location.name}
-                    </th>
-                  ))}
+                  <th className="border border-foreground/30 p-1.5 text-right font-bold">Cook</th>
                 </tr>
               </thead>
               <tbody>
                 {totals.map((t) => (
                   <tr key={t.product.id}>
-                    <td className="border border-border p-1">
-                      <span className="font-medium">{t.product.name}</span>
-                      {isPlantBased(t.product) && (
-                        <span className="ml-1 rounded bg-primary/15 px-1 text-[9px] font-semibold uppercase text-primary">
-                          {t.product.is_vegan ? "Vegan" : "Veg"}
-                        </span>
-                      )}
+                    <td className="border border-foreground/30 p-1.5 text-base font-semibold">
+                      {t.product.name}
                     </td>
-                    {columns.map((c) => {
-                      const v = cell(t.product.id, c.day, c.location.id);
-                      return (
-                        <td
-                          key={c.key}
-                          className="border border-border p-1 text-center tabular-nums"
-                        >
-                          {v > 0 ? v : "·"}
-                        </td>
-                      );
-                    })}
-                    <td className="border border-border bg-muted p-1 text-center text-sm font-bold tabular-nums">
+                    <td className="border border-foreground/30 p-1.5 font-medium">
+                      {t.product.is_vegan
+                        ? "Vegan"
+                        : t.product.is_vegetarian
+                          ? "Vegetarian"
+                          : "Regular"}
+                    </td>
+                    <td className="border border-foreground/30 p-1.5">
+                      {t.perDayTotals.map((d) => `${d.day.slice(0, 3)} ${d.cook}`).join(" · ")}
+                    </td>
+                    <td className="border border-foreground/30 p-1.5 text-right text-xl font-black tabular-nums">
                       {t.cook}
                     </td>
                   </tr>
                 ))}
               </tbody>
               <tfoot>
-                <tr>
-                  <td className="border border-border p-1 font-semibold">Total</td>
-                  {columns.map((c) => (
-                    <td
-                      key={c.key}
-                      className="border border-border p-1 text-center font-semibold tabular-nums"
-                    >
-                      {totals.reduce((s, t) => s + cell(t.product.id, c.day, c.location.id), 0)}
-                    </td>
-                  ))}
-                  <td className="border border-border bg-muted p-1 text-center text-sm font-bold tabular-nums">
+                <tr className="bg-muted">
+                  <td className="border border-foreground/30 p-1.5 font-bold" colSpan={3}>
+                    Total to cook
+                  </td>
+                  <td className="border border-foreground/30 p-1.5 text-right text-xl font-black tabular-nums">
                     {grandTotal}
                   </td>
                 </tr>
               </tfoot>
             </table>
-          </div>
+          </section>
 
-          <p className="mt-2 text-[10px] text-muted-foreground">
-            Dishes delivered on more than one day are cooked in full today; the per-day columns show
-            what leaves the kitchen on each delivery.
+          <section>
+            <h3 className="mb-1 text-sm font-bold uppercase tracking-wide">Delivery split</h3>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 print:grid-cols-3">
+              {locationCards.map((card) => (
+                <div
+                  key={card.key}
+                  className="location-card break-inside-avoid rounded border border-foreground/40"
+                >
+                  <div className="flex items-baseline justify-between gap-2 border-b border-foreground/30 bg-muted px-2 py-1">
+                    <span className="text-[13px] font-bold leading-tight">
+                      {card.location.name}
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase text-muted-foreground">
+                      {card.day.slice(0, 3)}
+                    </span>
+                  </div>
+                  <table className="w-full border-collapse text-[12px]">
+                    <tbody>
+                      {card.lines.map((line) => (
+                        <tr key={line.id} className="border-b border-foreground/15">
+                          <td className="px-2 py-1 leading-tight">
+                            {line.name}
+                            {line.plant && (
+                              <span className="ml-1 text-[9px] font-bold uppercase text-muted-foreground">
+                                pb
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-2 py-1 text-right text-base font-bold tabular-nums">
+                            {line.qty}
+                          </td>
+                        </tr>
+                      ))}
+                      <tr>
+                        <td className="px-2 py-1 font-semibold">Total</td>
+                        <td className="px-2 py-1 text-right text-base font-black tabular-nums">
+                          {card.total}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <p className="mt-3 text-[10px] text-muted-foreground">
+            Dishes delivered on more than one day are cooked in full today; each card shows what
+            leaves the kitchen for that location on that delivery day.
           </p>
         </div>
       )}
@@ -365,9 +409,12 @@ function KitchenSheetPage() {
       <style>{`
         @media print {
           @page { size: A4 portrait; margin: 10mm; }
-          .kitchen-sheet { font-size: 10px; }
+          body { background: #fff; }
+          nav, header.app-header, .print\\:hidden { display: none !important; }
+          .kitchen-sheet { font-size: 11px; }
           .kitchen-sheet table { page-break-inside: auto; }
           .kitchen-sheet tr { page-break-inside: avoid; }
+          .location-card { break-inside: avoid; page-break-inside: avoid; }
         }
       `}</style>
     </div>
