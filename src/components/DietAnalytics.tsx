@@ -238,7 +238,7 @@ function DietStat({ label, units, share }: { label: string; units: number; share
   );
 }
 
-function dietAnalyticsRange(
+export function dietAnalyticsRange(
   period: AnalyticsPeriod,
   date: string,
   fromYear: number,
