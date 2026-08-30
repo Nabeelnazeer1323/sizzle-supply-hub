@@ -172,6 +172,9 @@ function RestockPage() {
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className="truncate font-medium">{product.name}</p>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              {categoryLabel(productCategory(product))}
+            </p>
             <p className="text-xs text-muted-foreground">
               {onHand > 0 ? (
                 <>
