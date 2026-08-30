@@ -5,6 +5,7 @@ import { ArrowLeft, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase, type Product } from "@/lib/supabase";
+import { categoryLabel, productCategory } from "@/lib/category";
 import { useSnackInventory } from "@/lib/snacks-data";
 import { money, stockKey, type SnackBatch } from "@/lib/snacks";
 import { todayIso } from "@/lib/week";
