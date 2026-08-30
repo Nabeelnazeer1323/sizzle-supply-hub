@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import { productCategory } from "@/lib/category";
+import { isPantryProduct, PANTRY_CATEGORIES, productCategory } from "@/lib/category";
 import { buildStock, type SnackAdjustment, type SnackBatch, type SnackSale } from "@/lib/snacks";
 import { PRODUCT_COLUMNS, supabase, type Location, type Product } from "@/lib/supabase";
 
