@@ -14,7 +14,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 });
 
 export const PRODUCT_COLUMNS =
-  "id,numeric_id,name,translated_name,week_number,delivery_day,is_vegan,is_vegetarian,is_snack,types,image_url,storytel_delivery_days";
+  "id,numeric_id,name,translated_name,week_number,delivery_day,is_vegan,is_vegetarian,is_snack,types,image_url,storytel_delivery_days,due_date";
 
 export type Location = {
   id: string;
@@ -39,6 +39,8 @@ export type Product = {
   /** Weekdays this dish is part of Storytel's daily run. */
   storytel_delivery_days: string[] | null;
   image_url: string | null;
+  /** Default best-before / shelf-life date for this product. */
+  due_date: string | null;
 };
 
 export type PaymentMethod = "SWISH_MANUAL" | "SWISH_API" | "STRIPE";
