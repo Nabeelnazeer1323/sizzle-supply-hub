@@ -5,6 +5,7 @@ import { AlertTriangle, BarChart3, PackagePlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/lib/supabase";
+import { categoryLabel, productCategory } from "@/lib/category";
 import { useSnackInventory } from "@/lib/snacks-data";
 import { money, reasonLabel, stockTone, type StockLine } from "@/lib/snacks";
 import { defaultWeekSearch, formatDate, todayIso } from "@/lib/week";
