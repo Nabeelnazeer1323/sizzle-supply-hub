@@ -20,7 +20,7 @@ export function useLocations() {
   });
 }
 
-/** Every product tagged as a snack, regardless of week. */
+/** Every pantry product (snack, breakfast or drink), regardless of week. */
 export function useSnackProducts() {
   return useQuery({
     queryKey: ["snack-products"],
@@ -30,7 +30,13 @@ export function useSnackProducts() {
         .select(PRODUCT_COLUMNS)
         .order("name");
       if (error) throw error;
-      return (data as unknown as Product[]).filter((p) => productCategory(p) === "SNACK");
+      const list = (data as unknown as Product[]).filter(isPantryProduct);
+      return list.sort(
+        (a, b) =>
+          PANTRY_CATEGORIES.indexOf(productCategory(a) as never) -
+            PANTRY_CATEGORIES.indexOf(productCategory(b) as never) ||
+          a.name.localeCompare(b.name),
+      );
     },
   });
 }
