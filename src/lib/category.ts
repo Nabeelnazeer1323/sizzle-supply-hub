@@ -6,6 +6,15 @@ export type Category = (typeof CATEGORIES)[number];
 
 export const DEFAULT_CATEGORY: Category = "FOOD";
 
+/** Categories handled by the snacks (pantry) section: snacks, breakfast and drinks. */
+export const PANTRY_CATEGORIES = ["SNACK", "BREAKFAST", "DRINK"] as const;
+export type PantryCategory = (typeof PANTRY_CATEGORIES)[number];
+
+/** True when a product belongs to the snacks section (snack, breakfast or drink). */
+export function isPantryProduct(product: Pick<Product, "types" | "is_snack">): boolean {
+  return (PANTRY_CATEGORIES as readonly string[]).includes(productCategory(product));
+}
+
 /** The primary category of a product, derived from products.types. */
 export function productCategory(product: Pick<Product, "types" | "is_snack">): Category {
   const tags = (product.types ?? []).map((t) => String(t).toUpperCase());

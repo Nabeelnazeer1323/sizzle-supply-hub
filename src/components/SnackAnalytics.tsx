@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
-import { productCategory } from "@/lib/category";
+import { isPantryProduct } from "@/lib/category";
 import { money } from "@/lib/snacks";
 import { useSnackInventory } from "@/lib/snacks-data";
 import { PRODUCT_COLUMNS, supabase, type Product } from "@/lib/supabase";
@@ -56,7 +56,7 @@ export function SnackAnalytics({
     queryFn: async () => {
       const { data, error } = await supabase.from("products").select(PRODUCT_COLUMNS).order("name");
       if (error) throw error;
-      return (data as unknown as Product[]).filter((p) => productCategory(p) === "SNACK");
+      return (data as unknown as Product[]).filter(isPantryProduct);
     },
   });
 

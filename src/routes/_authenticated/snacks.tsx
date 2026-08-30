@@ -5,6 +5,7 @@ import { AlertTriangle, BarChart3, PackagePlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/lib/supabase";
+import { categoryLabel, productCategory } from "@/lib/category";
 import { useSnackInventory } from "@/lib/snacks-data";
 import { money, reasonLabel, stockTone, type StockLine } from "@/lib/snacks";
 import { defaultWeekSearch, formatDate, todayIso } from "@/lib/week";
@@ -245,6 +246,7 @@ function SnacksPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{product?.name ?? "Unknown snack"}</p>
                     <p className="truncate text-xs text-muted-foreground">
+                      {product ? `${categoryLabel(productCategory(product))} · ` : ""}
                       {location?.name ?? "Unknown location"}
                       {line.earliestBestBefore
                         ? ` · best before ${formatDate(line.earliestBestBefore)}`

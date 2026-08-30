@@ -5,6 +5,7 @@ import { ArrowLeft, Search } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase, type Product } from "@/lib/supabase";
+import { categoryLabel, productCategory } from "@/lib/category";
 import { useSnackInventory } from "@/lib/snacks-data";
 import { money, stockKey, type SnackBatch } from "@/lib/snacks";
 import { todayIso } from "@/lib/week";
@@ -172,6 +173,9 @@ function RestockPage() {
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0 flex-1">
             <p className="truncate font-medium">{product.name}</p>
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              {categoryLabel(productCategory(product))}
+            </p>
             <p className="text-xs text-muted-foreground">
               {onHand > 0 ? (
                 <>
@@ -237,7 +241,9 @@ function RestockPage() {
         </Button>
         <div>
           <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Restock snacks</h1>
-          <p className="text-sm text-muted-foreground">Walk the shelf and enter every snack at once.</p>
+          <p className="text-sm text-muted-foreground">
+            Walk the shelf and enter every snack, drink and breakfast item at once.
+          </p>
         </div>
       </div>
 
@@ -286,7 +292,7 @@ function RestockPage() {
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           type="search"
-          placeholder="Find a snack…"
+          placeholder="Find a snack, drink or breakfast item…"
           className="h-12 pl-10"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
