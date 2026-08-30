@@ -56,7 +56,7 @@ export function SnackAnalytics({
     queryFn: async () => {
       const { data, error } = await supabase.from("products").select(PRODUCT_COLUMNS).order("name");
       if (error) throw error;
-      return (data as unknown as Product[]).filter((p) => productCategory(p) === "SNACK");
+      return (data as unknown as Product[]).filter(isPantryProduct);
     },
   });
 
