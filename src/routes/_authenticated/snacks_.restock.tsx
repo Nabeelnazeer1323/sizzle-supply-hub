@@ -241,7 +241,9 @@ function RestockPage() {
         </Button>
         <div>
           <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Restock snacks</h1>
-          <p className="text-sm text-muted-foreground">Walk the shelf and enter every snack at once.</p>
+          <p className="text-sm text-muted-foreground">
+            Walk the shelf and enter every snack, drink and breakfast item at once.
+          </p>
         </div>
       </div>
 
