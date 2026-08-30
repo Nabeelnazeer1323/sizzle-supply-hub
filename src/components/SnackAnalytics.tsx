@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
-import { productCategory } from "@/lib/category";
+import { isPantryProduct } from "@/lib/category";
 import { money } from "@/lib/snacks";
 import { useSnackInventory } from "@/lib/snacks-data";
 import { PRODUCT_COLUMNS, supabase, type Product } from "@/lib/supabase";
