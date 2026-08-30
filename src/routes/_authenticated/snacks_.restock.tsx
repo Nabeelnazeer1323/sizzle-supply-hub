@@ -1,18 +1,17 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Search } from "lucide-react";
 import { toast } from "sonner";
 
-import { supabase } from "@/lib/supabase";
+import { supabase, type Product } from "@/lib/supabase";
 import { useSnackInventory } from "@/lib/snacks-data";
-import { money, stockKey } from "@/lib/snacks";
+import { money, stockKey, type SnackBatch } from "@/lib/snacks";
 import { todayIso } from "@/lib/week";
 import { QtyStepper } from "@/components/QtyStepper";
 import { SaveBar } from "@/components/SaveBar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -25,22 +24,10 @@ import {
 const LAST_LOCATION_KEY = "sizzle:last-snack-location";
 
 type Line = {
-  uid: string;
-  product_id: string;
   quantity: number;
   unit_cost: string;
   best_before: string;
 };
-
-function newLine(): Line {
-  return {
-    uid: Math.random().toString(36).slice(2),
-    product_id: "",
-    quantity: 1,
-    unit_cost: "",
-    best_before: "",
-  };
-}
 
 export const Route = createFileRoute("/_authenticated/snacks_/restock")({
   head: () => ({
@@ -69,7 +56,8 @@ function RestockPage() {
 
   const [locationId, setLocationId] = useState<string>("");
   const [deliveredOn, setDeliveredOn] = useState(todayIso());
-  const [lines, setLines] = useState<Line[]>([newLine()]);
+  const [lines, setLines] = useState<Record<string, Line>>({});
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     const stored = window.localStorage.getItem(LAST_LOCATION_KEY);
@@ -81,49 +69,163 @@ function RestockPage() {
 
   const stockByKey = useMemo(() => new Map(stock.map((l) => [l.key, l])), [stock]);
 
-  /** Cost and best-before default to the last delivery of the same snack. */
-  function lastBatchOf(productId: string) {
+  function lastBatchOf(productId: string): SnackBatch | undefined {
     return [...batches]
       .filter((b) => b.product_id === productId)
       .sort((a, b) => b.delivered_on.localeCompare(a.delivered_on))[0];
   }
 
-  function update(uid: string, patch: Partial<Line>) {
-    setLines((prev) => prev.map((l) => (l.uid === uid ? { ...l, ...patch } : l)));
+  function defaultBestBefore(product: Product): string {
+    const last = lastBatchOf(product.id);
+    if (last?.best_before) return last.best_before;
+    return product.due_date ?? "";
   }
 
-  function pickProduct(uid: string, productId: string) {
-    const last = lastBatchOf(productId);
-    update(uid, {
-      product_id: productId,
-      unit_cost: last?.unit_cost != null ? String(last.unit_cost) : "",
+  function defaultUnitCost(product: Product): string {
+    const last = lastBatchOf(product.id);
+    return last?.unit_cost != null ? String(last.unit_cost) : "";
+  }
+
+  function update(productId: string, patch: Partial<Line>) {
+    setLines((prev) => {
+      const base = prev[productId] ?? {
+        quantity: 0,
+        unit_cost: defaultUnitCost(products.find((p) => p.id === productId)!),
+        best_before: defaultBestBefore(products.find((p) => p.id === productId)!),
+      };
+      return { ...prev, [productId]: { ...base, ...patch } };
     });
   }
 
-  const filled = lines.filter((l) => l.product_id && l.quantity > 0);
-  const totalUnits = filled.reduce((sum, l) => sum + l.quantity, 0);
-  const totalCost = filled.reduce((sum, l) => sum + l.quantity * (Number(l.unit_cost) || 0), 0);
+  function ensureLine(productId: string): Line {
+    if (!lines[productId]) {
+      const product = products.find((p) => p.id === productId)!;
+      return {
+        quantity: 0,
+        unit_cost: defaultUnitCost(product),
+        best_before: defaultBestBefore(product),
+      };
+    }
+    return lines[productId];
+  }
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return products.filter((p) => (q ? p.name.toLowerCase().includes(q) : true));
+  }, [products, query]);
+
+  const { inStock, outOfStock } = useMemo(() => {
+    const inStock: Product[] = [];
+    const outOfStock: Product[] = [];
+    for (const p of filtered) {
+      const onHand = stockByKey.get(stockKey(locationId, p.id))?.onHand ?? 0;
+      (onHand > 0 ? inStock : outOfStock).push(p);
+    }
+    return { inStock, outOfStock };
+  }, [filtered, locationId, stockByKey]);
+
+  const filled = useMemo(() => {
+    return products
+      .map((p) => ({ product: p, line: ensureLine(p.id) }))
+      .filter(({ line }) => line.quantity > 0);
+  }, [products, lines]);
+
+  const totalUnits = filled.reduce((sum, { line }) => sum + line.quantity, 0);
+  const totalCost = filled.reduce(
+    (sum, { line }) => sum + line.quantity * (Number(line.unit_cost) || 0),
+    0,
+  );
 
   const save = useMutation({
     mutationFn: async () => {
-      const rows = filled.map((l) => ({
-        product_id: l.product_id,
+      const rows = filled.map(({ product, line }) => ({
+        product_id: product.id,
         location_id: locationId,
         delivered_on: deliveredOn,
-        quantity: l.quantity,
-        unit_cost: l.unit_cost === "" ? null : Number(l.unit_cost),
-        best_before: l.best_before || null,
+        quantity: line.quantity,
+        unit_cost: line.unit_cost === "" ? null : Number(line.unit_cost),
+        best_before: line.best_before || product.due_date || null,
       }));
       const { error: insertError } = await supabase.from("snack_batches").insert(rows);
       if (insertError) throw insertError;
     },
     onSuccess: () => {
+      window.localStorage.setItem(LAST_LOCATION_KEY, locationId);
       toast.success(`${totalUnits} units added to stock`);
       void queryClient.invalidateQueries({ queryKey: ["snack-batches"] });
       void navigate({ to: "/snacks" });
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  function renderRow(product: Product) {
+    const line = ensureLine(product.id);
+    const current = stockByKey.get(stockKey(locationId, product.id));
+    const onHand = current?.onHand ?? 0;
+    const active = line.quantity > 0;
+
+    return (
+      <li
+        key={product.id}
+        className={`rounded-xl border p-3 transition-colors ${active ? "border-primary bg-primary/5" : "border-border bg-card"}`}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-medium">{product.name}</p>
+            <p className="text-xs text-muted-foreground">
+              {onHand > 0 ? (
+                <>
+                  {onHand} left{" "}
+                  {active && (
+                    <>
+                      · becomes{" "}
+                      <span className="font-semibold text-foreground">{onHand + line.quantity}</span>
+                    </>
+                  )}
+                </>
+              ) : (
+                <span className="text-destructive">none left</span>
+              )}
+            </p>
+          </div>
+          <QtyStepper
+            value={line.quantity}
+            min={0}
+            onChange={(v) => update(product.id, { quantity: v })}
+            ariaLabel={`Quantity for ${product.name}`}
+          />
+        </div>
+
+        {active && (
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Cost per item
+              <Input
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                aria-label={`Cost per item for ${product.name}`}
+                className="mt-1.5 h-12 text-base"
+                value={line.unit_cost}
+                onChange={(e) => update(product.id, { unit_cost: e.target.value })}
+              />
+            </label>
+            <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              Best before
+              <Input
+                type="date"
+                aria-label={`Best before for ${product.name}`}
+                className="mt-1.5 h-12 text-base"
+                value={line.best_before}
+                onChange={(e) => update(product.id, { best_before: e.target.value })}
+              />
+            </label>
+          </div>
+        )}
+      </li>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -135,9 +237,7 @@ function RestockPage() {
         </Button>
         <div>
           <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Restock snacks</h1>
-          <p className="text-sm text-muted-foreground">
-            Adds to whatever is already left at the location.
-          </p>
+          <p className="text-sm text-muted-foreground">Walk the shelf and enter every snack at once.</p>
         </div>
       </div>
 
@@ -182,103 +282,28 @@ function RestockPage() {
         </label>
       </div>
 
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          type="search"
+          placeholder="Find a snack…"
+          className="h-12 pl-10"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+
       <ul className="space-y-3">
-        {lines.map((line) => {
-          const current = stockByKey.get(stockKey(locationId, line.product_id));
-          const onHand = current?.onHand ?? 0;
-          return (
-            <li key={line.uid}>
-              <Card>
-                <CardContent className="space-y-3 p-3">
-                  <div className="flex items-start gap-2">
-                    <Select
-                      value={line.product_id}
-                      onValueChange={(v) => pickProduct(line.uid, v)}
-                    >
-                      <SelectTrigger className="h-12 flex-1 text-base" aria-label="Snack">
-                        <SelectValue placeholder="Pick a snack" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {products.map((p) => (
-                          <SelectItem key={p.id} value={p.id}>
-                            {p.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      aria-label="Remove line"
-                      className="size-12"
-                      onClick={() =>
-                        setLines((prev) =>
-                          prev.length > 1
-                            ? prev.filter((l) => l.uid !== line.uid)
-                            : [newLine()],
-                        )
-                      }
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-3">
-                    <QtyStepper
-                      value={line.quantity}
-                      min={1}
-                      onChange={(v) => update(line.uid, { quantity: v })}
-                      ariaLabel="Quantity"
-                    />
-                    {line.product_id ? (
-                      <p className="text-xs text-muted-foreground">
-                        {onHand} left · becomes{" "}
-                        <span className="font-semibold text-foreground">
-                          {onHand + line.quantity}
-                        </span>
-                      </p>
-                    ) : null}
-                  </div>
-
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Cost per item
-                      <Input
-                        type="number"
-                        inputMode="decimal"
-                        min="0"
-                        step="0.01"
-                        aria-label="Cost per item"
-                        className="mt-1.5 h-12 text-base"
-                        value={line.unit_cost}
-                        onChange={(e) => update(line.uid, { unit_cost: e.target.value })}
-                      />
-                    </label>
-                    <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                      Best before
-                      <Input
-                        type="date"
-                        aria-label="Best before"
-                        className="mt-1.5 h-12 text-base"
-                        value={line.best_before}
-                        onChange={(e) => update(line.uid, { best_before: e.target.value })}
-                      />
-                    </label>
-                  </div>
-                </CardContent>
-              </Card>
-            </li>
-          );
-        })}
+        {inStock.map(renderRow)}
+        {outOfStock.length > 0 && (
+          <li className="pt-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Out of stock
+            </p>
+          </li>
+        )}
+        {outOfStock.map(renderRow)}
       </ul>
-
-      <Button
-        variant="outline"
-        className="h-12 w-full"
-        onClick={() => setLines((prev) => [...prev, newLine()])}
-      >
-        <Plus className="size-4" /> Add another snack
-      </Button>
 
       <SaveBar
         summary={`${filled.length} lines · ${totalUnits} units · ${money.format(totalCost)}`}
