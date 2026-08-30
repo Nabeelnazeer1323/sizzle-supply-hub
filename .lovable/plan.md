@@ -4,17 +4,17 @@
 
 The "Non Sizzle stocked" dashboard card shows both unit sales and a sales amount. Nothing else changes.
 
-## Constraint
+## Approach (confirmed)
 
-`orders.amount` exists only at the order level — `order_items` has no per-item price. So for mixed orders (some items Sizzle-stocked, some not), the amount attributable to non-Sizzle items is estimated **pro-rata by units**: `order.amount × (non-sizzle units in order / total units in order)`. Orders that contain only non-Sizzle items contribute their full amount.
+Amount is computed per item, not estimated from order totals: for each PAYMENT order item, look up the joined product's `price` column on the `products` table and add `quantity × price` when the product is non-Sizzle-stocked (`stocked_by_sizzle` false/null). Items whose product has no price contribute units but 0 to the amount.
 
 ## Change
 
 `src/components/NonSizzleSales.tsx` only:
 
-- Include `amount` in the orders select.
-- While summing units, accumulate `estimatedAmount += order.amount × (orderNonSizzleUnits / orderTotalUnits)` for each PAYMENT order.
-- Render the amount next to the units figure, formatted as SEK (e.g. `Intl.NumberFormat("sv-SE", { style: "currency", currency: "SEK", maximumFractionDigits: 0 })`), with a small "estimated by unit share" note so the number isn't mistaken for an exact figure.
+- Select `order_items(quantity,products(name,stocked_by_sizzle,price))`.
+- While summing units, accumulate `amount += quantity × (product.price ?? 0)` for non-Sizzle items.
+- Render the amount next to the units figure, formatted as SEK (`Intl.NumberFormat("sv-SE", { style: "currency", currency: "SEK", maximumFractionDigits: 0 })`).
 
 No other files, sections, or logic are touched.
 
