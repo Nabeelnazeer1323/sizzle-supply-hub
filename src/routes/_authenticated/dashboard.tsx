@@ -21,6 +21,7 @@ import {
 } from "@/components/OrderAnalytics";
 import { DishLocationAnalytics } from "@/components/DishLocationAnalytics";
 import { DietAnalytics } from "@/components/DietAnalytics";
+import { NonSizzleSales } from "@/components/NonSizzleSales";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -281,6 +282,14 @@ function DashboardPage() {
           ) : null}
         </CardContent>
       </Card>
+
+      <NonSizzleSales
+        period={analyticsPeriod}
+        anchorDate={analyticsDate}
+        fromYear={analyticsFromYear}
+        toYear={analyticsToYear}
+        yearToDate={analyticsYearToDate}
+      />
 
       <WeekBar
         year={year}
