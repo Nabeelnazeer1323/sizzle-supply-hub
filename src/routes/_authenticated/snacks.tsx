@@ -245,6 +245,7 @@ function SnacksPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate font-medium">{product?.name ?? "Unknown snack"}</p>
                     <p className="truncate text-xs text-muted-foreground">
+                      {product ? `${categoryLabel(productCategory(product))} · ` : ""}
                       {location?.name ?? "Unknown location"}
                       {line.earliestBestBefore
                         ? ` · best before ${formatDate(line.earliestBestBefore)}`
