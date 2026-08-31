@@ -2,9 +2,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
 
-import { stockholmLocalToIso } from "@/lib/order-import";
+import { analyticsRange, type AnalyticsPeriod } from "@/lib/analytics";
 import { supabase } from "@/lib/supabase";
-import { shiftDate } from "@/lib/week";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -16,7 +15,7 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 
-export type AnalyticsPeriod = "day" | "week" | "month" | "year";
+export type { AnalyticsPeriod } from "@/lib/analytics";
 
 type AnalyticsOrder = {
   id: string;
@@ -44,24 +43,14 @@ const categoryConfig = {
   drink: { label: "Drink", color: "var(--color-chart-5)" },
 } satisfies ChartConfig;
 const money = new Intl.NumberFormat("sv-SE", { style: "currency", currency: "SEK" });
+const ANALYTICS_PAGE_SIZE = 500;
 
 export function YearToDateHighlights() {
   const currentYear = new Date().getFullYear();
   const range = analyticsRange("year", `${currentYear}-01-01`, currentYear, currentYear, true);
   const ordersQuery = useQuery({
-    queryKey: ["order-analytics-highlights", currentYear, range.start, range.end],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("orders")
-        .select(
-          "id,ordered_at,transaction_type,amount,mapping_status,locations(name),order_items(quantity,products(name,types,is_snack))",
-        )
-        .gte("ordered_at", range.start)
-        .lt("ordered_at", range.end)
-        .order("ordered_at", { ascending: true });
-      if (error) throw error;
-      return data as unknown as AnalyticsOrder[];
-    },
+    queryKey: ["order-analytics-orders", range.start, range.end],
+    queryFn: ({ signal }) => fetchAnalyticsOrders(range.start, range.end, signal),
   });
 
   const payments = (ordersQuery.data ?? []).filter((order) => order.transaction_type === "PAYMENT");
@@ -106,19 +95,8 @@ export function OrderAnalytics({
     [period, anchorDate, fromYear, toYear, yearToDate],
   );
   const ordersQuery = useQuery({
-    queryKey: ["order-analytics", period, range.start, range.end],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("orders")
-        .select(
-          "id,ordered_at,transaction_type,amount,mapping_status,locations(name),order_items(quantity,products(name,types,is_snack))",
-        )
-        .gte("ordered_at", range.start)
-        .lt("ordered_at", range.end)
-        .order("ordered_at", { ascending: true });
-      if (error) throw error;
-      return data as unknown as AnalyticsOrder[];
-    },
+    queryKey: ["order-analytics-orders", range.start, range.end],
+    queryFn: ({ signal }) => fetchAnalyticsOrders(range.start, range.end, signal),
   });
 
   const orders = ordersQuery.data ?? [];
@@ -509,41 +487,29 @@ function EmptySales() {
   );
 }
 
-function analyticsRange(
-  period: AnalyticsPeriod,
-  date: string,
-  fromYear: number,
-  toYear: number,
-  yearToDate: boolean,
-) {
-  let startDate: string;
-  let endDate: string;
-  if (period === "day") {
-    startDate = date;
-    endDate = shiftDate(date, 1);
-  } else if (period === "week") {
-    const anchor = new Date(`${date}T00:00:00Z`);
-    const weekday = anchor.getUTCDay() || 7;
-    startDate = shiftDate(date, 1 - weekday);
-    endDate = shiftDate(startDate, 7);
-  } else if (period === "month") {
-    startDate = `${date.slice(0, 7)}-01`;
-    const nextMonth = new Date(`${startDate}T00:00:00Z`);
-    nextMonth.setUTCMonth(nextMonth.getUTCMonth() + 1);
-    endDate = nextMonth.toISOString().slice(0, 10);
-  } else {
-    startDate = `${fromYear}-01-01`;
-    if (yearToDate) {
-      const today = new Date();
-      const monthDay = `${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-      endDate = shiftDate(`${toYear}-${monthDay}`, 1);
-    } else {
-      endDate = `${toYear + 1}-01-01`;
-    }
+async function fetchAnalyticsOrders(start: string, end: string, signal: AbortSignal) {
+  const orders: AnalyticsOrder[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error, count } = await supabase
+      .from("orders")
+      .select(
+        "id,ordered_at,transaction_type,amount,mapping_status,locations(name),order_items(quantity,products(name,types,is_snack))",
+        { count: "exact" },
+      )
+      .gte("ordered_at", start)
+      .lt("ordered_at", end)
+      .order("ordered_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(from, from + ANALYTICS_PAGE_SIZE - 1)
+      .abortSignal(signal);
+
+    if (error) throw error;
+    const page = data as unknown as AnalyticsOrder[];
+    orders.push(...page);
+    if (count !== null && orders.length >= count) return orders;
+    if (page.length === 0 || (count === null && page.length < ANALYTICS_PAGE_SIZE)) return orders;
+    from += page.length;
   }
-  return {
-    start: stockholmLocalToIso(startDate, "00:00:00"),
-    end: stockholmLocalToIso(endDate, "00:00:00"),
-    label: `${startDate} – ${shiftDate(endDate, -1)}`,
-  };
 }

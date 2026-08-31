@@ -1,9 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 
+import { analyticsRange, type AnalyticsPeriod } from "@/lib/analytics";
 import { supabase } from "@/lib/supabase";
-import { dietAnalyticsRange } from "@/components/DietAnalytics";
-import type { AnalyticsPeriod } from "@/components/OrderAnalytics";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Card, CardContent } from "@/components/ui/card";
 
@@ -36,7 +35,7 @@ export function NonSizzleSales({
   yearToDate: boolean;
 }) {
   const range = useMemo(
-    () => dietAnalyticsRange(period, anchorDate, fromYear, toYear, yearToDate),
+    () => analyticsRange(period, anchorDate, fromYear, toYear, yearToDate),
     [period, anchorDate, fromYear, toYear, yearToDate],
   );
 
@@ -45,9 +44,7 @@ export function NonSizzleSales({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("orders")
-        .select(
-          "id,transaction_type,order_items(quantity,products(name,stocked_by_sizzle,price))",
-        )
+        .select("id,transaction_type,order_items(quantity,products(name,stocked_by_sizzle,price))")
         .gte("ordered_at", range.start)
         .lt("ordered_at", range.end);
       if (error) throw error;

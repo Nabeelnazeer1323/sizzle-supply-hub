@@ -22,6 +22,7 @@ import {
 import { DishLocationAnalytics } from "@/components/DishLocationAnalytics";
 import { DietAnalytics } from "@/components/DietAnalytics";
 import { NonSizzleSales } from "@/components/NonSizzleSales";
+import { PurchaseHeatmap } from "@/components/PurchaseHeatmap";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -308,6 +309,15 @@ function DashboardPage() {
         yearToDate={analyticsYearToDate}
       />
 
+      <PurchaseHeatmap
+        period={analyticsPeriod}
+        anchorDate={analyticsDate}
+        fromYear={analyticsFromYear}
+        toYear={analyticsToYear}
+        yearToDate={analyticsYearToDate}
+        locations={locations}
+      />
+
       <DishLocationAnalytics
         period={analyticsPeriod}
         anchorDate={analyticsDate}
@@ -323,7 +333,6 @@ function DashboardPage() {
         toYear={analyticsToYear}
         yearToDate={analyticsYearToDate}
       />
-
 
       {analyticsPeriod === "day" ? (
         <>
