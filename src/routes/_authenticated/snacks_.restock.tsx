@@ -361,17 +361,51 @@ function RestockPage() {
         />
       </div>
 
+      {filled.length > 0 && openBatches.length > 0 ? (
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-card p-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1 size-4"
+            checked={closeOld}
+            onChange={(e) => setCloseOld(e.target.checked)}
+          />
+          <span>
+            Close the {openBatches.length} open{" "}
+            {openBatches.length === 1 ? "delivery" : "deliveries"} of these items
+            <span className="block text-xs text-muted-foreground">
+              Records what was left as picked back up, so the new delivery starts clean.
+            </span>
+          </span>
+        </label>
+      ) : null}
+
       <ul className="space-y-3">
+        {needsRestock.length > 0 && (
+          <li>
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">
+              Needs restocking
+            </p>
+          </li>
+        )}
+        {needsRestock.map(renderRow)}
+        {inStock.length > 0 && (
+          <li className="pt-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              In stock
+            </p>
+          </li>
+        )}
         {inStock.map(renderRow)}
         {outOfStock.length > 0 && (
           <li className="pt-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Out of stock
+              Never delivered here
             </p>
           </li>
         )}
         {outOfStock.map(renderRow)}
       </ul>
+
 
       <SaveBar
         summary={`${filled.length} lines · ${totalUnits} units · ${money.format(totalCost)}`}
