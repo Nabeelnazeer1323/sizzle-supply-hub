@@ -123,19 +123,23 @@ export function SnackAnalytics({
     };
   }, [orders, snackIds, nameById]);
 
-  const wasteUnits = useMemo(
-    () =>
-      adjustments
-        .filter(
-          (a) =>
-            a.quantity_delta < 0 &&
-            a.occurred_on >= range.start &&
-            a.occurred_on < range.end &&
-            (a.reason === "EXPIRED" || a.reason === "DAMAGED"),
-        )
-        .reduce((sum, a) => sum + Math.abs(a.quantity_delta), 0),
-    [adjustments, range.start, range.end],
-  );
+  /** Waste = manual write-offs plus what came back when a batch was closed. */
+  const wasteUnits = useMemo(() => {
+    const fromAdjustments = adjustments
+      .filter(
+        (a) =>
+          a.quantity_delta < 0 &&
+          a.occurred_on >= range.start &&
+          a.occurred_on < range.end &&
+          (a.reason === "EXPIRED" || a.reason === "DAMAGED"),
+      )
+      .reduce((sum, a) => sum + Math.abs(a.quantity_delta), 0);
+    const fromBatches = batches
+      .filter((b) => b.closed_on && b.closed_on >= range.start && b.closed_on < range.end)
+      .reduce((sum, b) => sum + (b.closed_quantity ?? 0), 0);
+    return fromAdjustments + fromBatches;
+  }, [adjustments, batches, range.start, range.end]);
+
 
   const stockValue = lines.reduce((sum, line) => sum + line.value, 0);
 
