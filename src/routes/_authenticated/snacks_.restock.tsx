@@ -59,6 +59,8 @@ function RestockPage() {
   const [deliveredOn, setDeliveredOn] = useState(todayIso());
   const [lines, setLines] = useState<Record<string, Line>>({});
   const [query, setQuery] = useState("");
+  const [closeOld, setCloseOld] = useState(true);
+
 
   useEffect(() => {
     const stored = window.localStorage.getItem(LAST_LOCATION_KEY);
