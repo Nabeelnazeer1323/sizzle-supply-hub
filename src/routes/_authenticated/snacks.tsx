@@ -1,20 +1,29 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, BarChart3, PackagePlus } from "lucide-react";
+import { BarChart3, PackagePlus } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/lib/supabase";
-import { categoryLabel, productCategory } from "@/lib/category";
+import { categoryLabel, isPantryProduct, productCategory } from "@/lib/category";
 import { useSnackInventory } from "@/lib/snacks-data";
-import { money, reasonLabel, stockTone, type StockLine } from "@/lib/snacks";
+import {
+  batchStatusLabel,
+  closeReasonLabel,
+  money,
+  reasonLabel,
+  statusLabel,
+  STATUS_ORDER,
+  type BatchState,
+  type StockLine,
+  type StockStatus,
+} from "@/lib/snacks";
 import { defaultWeekSearch, formatDate, todayIso } from "@/lib/week";
 import { QtyStepper } from "@/components/QtyStepper";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-
 import {
   Select,
   SelectContent,
@@ -39,12 +48,12 @@ export const Route = createFileRoute("/_authenticated/snacks")({
       {
         name: "description",
         content:
-          "Live snack stock per location, with best-before warnings and stock value at cost.",
+          "Live snack stock per location and per delivery batch, with expiry and sold-out warnings.",
       },
       { property: "og:title", content: "Snack inventory — Sizzle Ops" },
       {
         property: "og:description",
-        content: "What is left in every fridge, what is selling and what is about to expire.",
+        content: "What is in every fridge, from which delivery, and what needs a restock.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -53,29 +62,44 @@ export const Route = createFileRoute("/_authenticated/snacks")({
   component: SnacksPage,
 });
 
-const TONE_CLASS: Record<string, string> = {
-  out: "border-destructive/60",
+const TONE_CLASS: Record<StockStatus, string> = {
   expired: "border-destructive/60",
+  out: "border-destructive/60",
   expiring: "border-amber-500/60",
   low: "border-amber-500/40",
   ok: "border-border",
 };
 
-function ToneBadge({ line }: { line: StockLine }) {
-  const tone = stockTone(line);
-  if (tone === "out") return <Badge variant="destructive">Out of stock</Badge>;
-  if (tone === "expired")
-    return <Badge variant="destructive">{line.expiredUnits} expired</Badge>;
-  if (tone === "expiring")
+function StatusBadge({ status }: { status: StockStatus }) {
+  if (status === "expired" || status === "out")
+    return <Badge variant="destructive">{statusLabel(status)}</Badge>;
+  if (status === "expiring" || status === "low")
     return (
       <Badge variant="outline" className="border-amber-500 text-amber-600">
-        {line.expiringUnits} expiring
+        {statusLabel(status)}
       </Badge>
     );
-  if (tone === "low")
+  return null;
+}
+
+function BatchBadge({ batch }: { batch: BatchState }) {
+  if (batch.status === "CLOSED")
+    return (
+      <Badge variant="outline" className="text-muted-foreground">
+        {closeReasonLabel(batch.close_reason)}
+      </Badge>
+    );
+  if (batch.status === "EXPIRED") return <Badge variant="destructive">Expired</Badge>;
+  if (batch.status === "SOLD_OUT")
+    return (
+      <Badge variant="outline" className="text-muted-foreground">
+        Sold out
+      </Badge>
+    );
+  if (batch.daysLeft !== null && batch.daysLeft <= 7)
     return (
       <Badge variant="outline" className="border-amber-500 text-amber-600">
-        Running low
+        {batch.daysLeft}d left
       </Badge>
     );
   return null;
@@ -83,9 +107,10 @@ function ToneBadge({ line }: { line: StockLine }) {
 
 function SnacksPage() {
   const queryClient = useQueryClient();
-  const { locations, products, lines, adjustments, isPending, error } = useSnackInventory();
+  const { locations, productById, lines, adjustments, isPending, error } = useSnackInventory();
 
   const [locationId, setLocationId] = useState<string>("all");
+  const [filter, setFilter] = useState<StockStatus | null>(null);
   useEffect(() => {
     const stored = window.localStorage.getItem(LAST_LOCATION_KEY);
     if (stored) setLocationId(stored);
@@ -96,55 +121,51 @@ function SnacksPage() {
     window.localStorage.setItem(LAST_LOCATION_KEY, id);
   }
 
-  const productById = useMemo(
-    () => new Map(products.map((p) => [p.id, p])),
-    [products],
-  );
   const locationById = useMemo(() => new Map(locations.map((l) => [l.id, l])), [locations]);
+
+  const atLocation = useMemo(
+    () => lines.filter((line) => locationId === "all" || line.location_id === locationId),
+    [lines, locationId],
+  );
+
+  const counts = useMemo(() => {
+    const base: Record<StockStatus, number> = { expired: 0, out: 0, expiring: 0, low: 0, ok: 0 };
+    for (const line of atLocation) base[line.status] += 1;
+    return base;
+  }, [atLocation]);
+
+  const totals = useMemo(() => {
+    let value = 0;
+    let sold7 = 0;
+    for (const line of atLocation) {
+      value += line.value;
+      sold7 += line.soldLast7;
+    }
+    return { value, sold7 };
+  }, [atLocation]);
 
   const visible = useMemo(
     () =>
-      lines
-        .filter((line) => locationId === "all" || line.location_id === locationId)
+      atLocation
+        .filter((line) => (filter ? line.status === filter : true))
         .sort((a, b) => {
-          const order = { out: 0, expired: 1, expiring: 2, low: 3, ok: 4 } as const;
-          const diff = order[stockTone(a)] - order[stockTone(b)];
+          const diff = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
           if (diff !== 0) return diff;
           return (productById.get(a.product_id)?.name ?? "").localeCompare(
             productById.get(b.product_id)?.name ?? "",
           );
         }),
-    [lines, locationId, productById],
+    [atLocation, filter, productById],
   );
 
-  const totals = useMemo(() => {
-    let value = 0;
-    let out = 0;
-    let expiring = 0;
-    let sold7 = 0;
-    for (const line of visible) {
-      value += line.value;
-      if (line.onHand <= 0) out += 1;
-      expiring += line.expiringUnits + line.expiredUnits;
-      sold7 += line.soldLast7;
-    }
-    return { value, out, expiring, sold7 };
-  }, [visible]);
-
   const [openKey, setOpenKey] = useState<string | null>(null);
-  const openLine = visible.find((l) => l.key === openKey) ?? null;
+  const openLine = lines.find((l) => l.key === openKey) ?? null;
 
   const adjust = useMutation({
-    mutationFn: async (input: {
-      line: StockLine;
-      delta: number;
-      reason: string;
-      batchId?: string | null;
-    }) => {
+    mutationFn: async (input: { line: StockLine; delta: number; reason: string }) => {
       const { error: insertError } = await supabase.from("snack_adjustments").insert({
         product_id: input.line.product_id,
         location_id: input.line.location_id,
-        batch_id: input.batchId ?? null,
         occurred_on: todayIso(),
         quantity_delta: input.delta,
         reason: input.reason,
@@ -158,10 +179,31 @@ function SnacksPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const closeBatch = useMutation({
+    mutationFn: async (input: { batch: BatchState; reason: string; leftover: number }) => {
+      const { error: updateError } = await supabase
+        .from("snack_batches")
+        .update({
+          closed_on: todayIso(),
+          closed_quantity: input.leftover,
+          close_reason: input.reason,
+        })
+        .eq("id", input.batch.id);
+      if (updateError) throw updateError;
+    },
+    onSuccess: () => {
+      toast.success("Batch closed");
+      void queryClient.invalidateQueries({ queryKey: ["snack-batches"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const [recount, setRecount] = useState<number>(0);
   useEffect(() => {
     if (openLine) setRecount(openLine.onHand);
   }, [openKey, openLine?.onHand]);
+
+  const openProduct = openLine ? productById.get(openLine.product_id) : undefined;
 
   return (
     <div className="space-y-4">
@@ -169,7 +211,7 @@ function SnacksPage() {
         <div>
           <h1 className="text-xl font-semibold tracking-tight md:text-2xl">Snack inventory</h1>
           <p className="text-sm text-muted-foreground">
-            Live stock: delivered minus sold, updated whenever orders are refreshed.
+            What is in the fridge right now, batch by batch.
           </p>
         </div>
         <div className="flex gap-2">
@@ -191,10 +233,14 @@ function SnacksPage() {
           <AlertTitle>Could not load snack inventory</AlertTitle>
           <AlertDescription>
             {error.message}
-            {error.message.toLowerCase().includes("snack_") ? (
+            {error.message.toLowerCase().includes("snack_") ||
+            error.message.toLowerCase().includes("closed_on") ? (
               <>
                 {" "}
-                Run the snack SQL on the <Link className="underline" to="/setup">setup page</Link>{" "}
+                Run the snack SQL on the{" "}
+                <Link className="underline" to="/setup">
+                  setup page
+                </Link>{" "}
                 first.
               </>
             ) : null}
@@ -217,10 +263,40 @@ function SnacksPage() {
       </Select>
 
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Stat label="Stock value" value={money.format(totals.value)} />
-        <Stat label="Out of stock" value={String(totals.out)} warn={totals.out > 0} />
-        <Stat label="Expiring units" value={String(totals.expiring)} warn={totals.expiring > 0} />
-        <Stat label="Sold last 7 days" value={String(totals.sold7)} />
+        {(["expired", "out", "expiring", "low"] as const).map((status) => (
+          <button
+            key={status}
+            type="button"
+            onClick={() => setFilter(filter === status ? null : status)}
+            className={`rounded-lg border p-3 text-left transition-colors hover:bg-accent ${
+              filter === status ? "border-primary bg-primary/5" : TONE_CLASS[status]
+            }`}
+          >
+            <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
+              {statusLabel(status)}
+            </p>
+            <p
+              className={`text-xl font-semibold tabular-nums ${
+                counts[status] > 0 && (status === "expired" || status === "out")
+                  ? "text-destructive"
+                  : ""
+              }`}
+            >
+              {counts[status]}
+            </p>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+        <span>{money.format(totals.value)} on the shelf</span>
+        <span>·</span>
+        <span>{totals.sold7} sold in 7 days</span>
+        {filter ? (
+          <Button variant="ghost" size="sm" onClick={() => setFilter(null)}>
+            Clear filter
+          </Button>
+        ) : null}
       </div>
 
       {isPending ? (
@@ -228,7 +304,9 @@ function SnacksPage() {
       ) : visible.length === 0 ? (
         <Card>
           <CardContent className="py-16 text-center text-sm text-muted-foreground">
-            No snacks delivered here yet. Use Restock to add the first delivery.
+            {filter
+              ? `Nothing ${statusLabel(filter).toLowerCase()} here.`
+              : "No deliveries registered here yet. Use Restock to add the first one."}
           </CardContent>
         </Card>
       ) : (
@@ -236,18 +314,21 @@ function SnacksPage() {
           {visible.map((line) => {
             const product = productById.get(line.product_id);
             const location = locationById.get(line.location_id);
+            const uncategorised = product ? !isPantryProduct(product) : false;
             return (
               <li key={line.key}>
                 <button
                   type="button"
                   onClick={() => setOpenKey(line.key)}
-                  className={`flex w-full items-center gap-3 rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent ${TONE_CLASS[stockTone(line)]}`}
+                  className={`flex w-full items-center gap-3 rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent ${TONE_CLASS[line.status]}`}
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{product?.name ?? "Unknown snack"}</p>
+                    <p className="truncate font-medium">
+                      {product?.name ?? `Product ${line.product_id}`}
+                    </p>
                     <p className="truncate text-xs text-muted-foreground">
                       {product ? `${categoryLabel(productCategory(product))} · ` : ""}
-                      {location?.name ?? "Unknown location"}
+                      {location?.name ?? line.location_id}
                       {line.earliestBestBefore
                         ? ` · best before ${formatDate(line.earliestBestBefore)}`
                         : ""}
@@ -255,6 +336,11 @@ function SnacksPage() {
                         ? ` · ~${Math.floor(line.daysOfCover)}d cover`
                         : ""}
                     </p>
+                    {uncategorised ? (
+                      <p className="text-[11px] font-medium text-amber-600">
+                        Needs a category (snack / breakfast / drink)
+                      </p>
+                    ) : null}
                   </div>
                   <div className="text-right">
                     <p className="text-lg font-semibold tabular-nums">{line.onHand}</p>
@@ -262,7 +348,7 @@ function SnacksPage() {
                       {line.soldLast7} sold/7d
                     </p>
                   </div>
-                  <ToneBadge line={line} />
+                  <StatusBadge status={line.status} />
                 </button>
               </li>
             );
@@ -276,54 +362,81 @@ function SnacksPage() {
             <>
               <SheetHeader>
                 <SheetTitle>
-                  {productById.get(openLine.product_id)?.name ?? "Snack"} ·{" "}
+                  {openProduct?.name ?? `Product ${openLine.product_id}`} ·{" "}
                   {locationById.get(openLine.location_id)?.name ?? ""}
                 </SheetTitle>
                 <SheetDescription>
-                  {openLine.delivered} delivered · {openLine.sold} sold ·{" "}
-                  {openLine.adjusted !== 0 ? `${openLine.adjusted} adjusted · ` : ""}
-                  {openLine.onHand} on hand · {money.format(openLine.value)} at cost
+                  {openLine.onHand} on hand · {openLine.delivered} delivered in total ·{" "}
+                  {openLine.sold} sold
+                  {openLine.wastedUnits > 0 ? ` · ${openLine.wastedUnits} taken back` : ""} ·{" "}
+                  {money.format(openLine.value)} at cost
                 </SheetDescription>
               </SheetHeader>
 
               <div className="space-y-4 px-4 pb-8">
                 <div>
-                  <h3 className="mb-2 text-sm font-medium">Batches</h3>
+                  <h3 className="mb-2 text-sm font-medium">Deliveries</h3>
                   <ul className="divide-y divide-border rounded-lg border border-border">
-                    {openLine.batches.map((batch) => (
-                      <li key={batch.id} className="flex items-center gap-3 p-3 text-sm">
-                        <div className="min-w-0 flex-1">
-                          <p className="font-medium">{formatDate(batch.delivered_on)}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {batch.quantity} in ·{" "}
-                            {batch.unit_cost !== null
-                              ? `${money.format(batch.unit_cost)} each`
-                              : "no cost"}
-                            {batch.best_before
-                              ? ` · best before ${formatDate(batch.best_before)}`
-                              : ""}
-                          </p>
+                    {[...openLine.batches].reverse().map((batch) => (
+                      <li key={batch.id} className="space-y-2 p-3 text-sm">
+                        <div className="flex items-center gap-3">
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium">
+                              Delivered {formatDate(batch.delivered_on)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {batch.quantity} in · {batch.sold} sold
+                              {batch.adjusted !== 0 ? ` · ${batch.adjusted} adjusted` : ""}
+                              {batch.unit_cost !== null
+                                ? ` · ${money.format(batch.unit_cost)} each`
+                                : ""}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {batch.best_before
+                                ? `Best before ${formatDate(batch.best_before)}`
+                                : "No best-before date"}
+                              {batch.closed_on
+                                ? ` · ${closeReasonLabel(batch.close_reason)} ${formatDate(batch.closed_on)} (${batch.closed_quantity ?? 0} back)`
+                                : ` · ${batchStatusLabel(batch.status)}`}
+                            </p>
+                          </div>
+                          <BatchBadge batch={batch} />
+                          <span className="w-8 text-right font-semibold tabular-nums">
+                            {batch.remaining}
+                          </span>
                         </div>
-                        {batch.expired && batch.remaining > 0 ? (
-                          <AlertTriangle className="size-4 text-destructive" />
-                        ) : null}
-                        <span className="tabular-nums font-semibold">{batch.remaining}</span>
-                        {batch.expired && batch.remaining > 0 ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={adjust.isPending}
-                            onClick={() =>
-                              adjust.mutate({
-                                line: openLine,
-                                delta: -batch.remaining,
-                                reason: "EXPIRED",
-                                batchId: batch.id,
-                              })
-                            }
-                          >
-                            Write off
-                          </Button>
+
+                        {!batch.closed_on ? (
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={closeBatch.isPending}
+                              onClick={() =>
+                                closeBatch.mutate({
+                                  batch,
+                                  reason: "COLLECTED",
+                                  leftover: batch.remaining,
+                                })
+                              }
+                            >
+                              Picked back up ({batch.remaining})
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={closeBatch.isPending}
+                              onClick={() =>
+                                closeBatch.mutate({
+                                  batch,
+                                  reason: "THROWN",
+                                  leftover: batch.remaining,
+                                })
+                              }
+                            >
+                              Thrown away
+                            </Button>
+                          </div>
                         ) : null}
                       </li>
                     ))}
@@ -349,13 +462,17 @@ function SnacksPage() {
                   </div>
                 </div>
 
+                <Button asChild variant="secondary" className="w-full">
+                  <Link to="/snacks/restock">Restock this location</Link>
+                </Button>
+
                 {adjustments.filter(
                   (a) =>
                     a.product_id === openLine.product_id &&
                     a.location_id === openLine.location_id,
                 ).length ? (
                   <div>
-                    <h3 className="mb-2 text-sm font-medium">Adjustments</h3>
+                    <h3 className="mb-2 text-sm font-medium">Corrections</h3>
                     <ul className="divide-y divide-border text-sm">
                       {adjustments
                         .filter(
@@ -383,17 +500,6 @@ function SnacksPage() {
           ) : null}
         </SheetContent>
       </Sheet>
-    </div>
-  );
-}
-
-function Stat({ label, value, warn = false }: { label: string; value: string; warn?: boolean }) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-3">
-      <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
-      <p className={`text-xl font-semibold tabular-nums ${warn ? "text-destructive" : ""}`}>
-        {value}
-      </p>
     </div>
   );
 }

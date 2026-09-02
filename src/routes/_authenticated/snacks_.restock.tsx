@@ -7,8 +7,8 @@ import { toast } from "sonner";
 import { supabase, type Product } from "@/lib/supabase";
 import { categoryLabel, productCategory } from "@/lib/category";
 import { useSnackInventory } from "@/lib/snacks-data";
-import { money, stockKey, type SnackBatch } from "@/lib/snacks";
-import { todayIso } from "@/lib/week";
+import { money, statusLabel, stockKey, type SnackBatch } from "@/lib/snacks";
+import { formatDate, todayIso } from "@/lib/week";
 import { QtyStepper } from "@/components/QtyStepper";
 import { SaveBar } from "@/components/SaveBar";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -59,6 +59,8 @@ function RestockPage() {
   const [deliveredOn, setDeliveredOn] = useState(todayIso());
   const [lines, setLines] = useState<Record<string, Line>>({});
   const [query, setQuery] = useState("");
+  const [closeOld, setCloseOld] = useState(true);
+
 
   useEffect(() => {
     const stored = window.localStorage.getItem(LAST_LOCATION_KEY);
@@ -67,19 +69,32 @@ function RestockPage() {
   useEffect(() => {
     if (!locationId && locations[0]) setLocationId(locations[0].id);
   }, [locations, locationId]);
+  useEffect(() => {
+    setLines({});
+  }, [locationId]);
+
+
 
   const stockByKey = useMemo(() => new Map(stock.map((l) => [l.key, l])), [stock]);
 
   function lastBatchOf(productId: string): SnackBatch | undefined {
     return [...batches]
-      .filter((b) => b.product_id === productId)
+      .filter((b) => b.product_id === productId && b.location_id === locationId)
       .sort((a, b) => b.delivered_on.localeCompare(a.delivered_on))[0];
   }
 
+  /** The product's own due date wins; only fall back to history when it is empty. */
   function defaultBestBefore(product: Product): string {
+    if (product.due_date) return product.due_date;
+    return lastBatchOf(product.id)?.best_before ?? "";
+  }
+
+  function bestBeforeSource(product: Product, value: string): string {
+    if (!value) return "no date yet — the product due date is used on save";
+    if (product.due_date && value === product.due_date) return "from the product due date";
     const last = lastBatchOf(product.id);
-    if (last?.best_before) return last.best_before;
-    return product.due_date ?? "";
+    if (last?.best_before && value === last.best_before) return "from the last delivery here";
+    return "";
   }
 
   function defaultUnitCost(product: Product): string {
@@ -115,15 +130,22 @@ function RestockPage() {
     return products.filter((p) => (q ? p.name.toLowerCase().includes(q) : true));
   }, [products, query]);
 
-  const { inStock, outOfStock } = useMemo(() => {
+  const { needsRestock, inStock, outOfStock } = useMemo(() => {
+    const needsRestock: Product[] = [];
     const inStock: Product[] = [];
     const outOfStock: Product[] = [];
     for (const p of filtered) {
-      const onHand = stockByKey.get(stockKey(locationId, p.id))?.onHand ?? 0;
-      (onHand > 0 ? inStock : outOfStock).push(p);
+      const line = stockByKey.get(stockKey(locationId, p.id));
+      const onHand = line?.onHand ?? 0;
+      const status = line?.status;
+      if (status === "expired" || status === "out" || status === "expiring" || status === "low") {
+        needsRestock.push(p);
+      } else if (onHand > 0) inStock.push(p);
+      else outOfStock.push(p);
     }
-    return { inStock, outOfStock };
+    return { needsRestock, inStock, outOfStock };
   }, [filtered, locationId, stockByKey]);
+
 
   const filled = useMemo(() => {
     return products
@@ -137,8 +159,34 @@ function RestockPage() {
     0,
   );
 
+  /** Batches of the restocked products that are still open at this location. */
+  const openBatches = useMemo(() => {
+    const ids = new Set(filled.map(({ product }) => product.id));
+    const result: { id: string; leftover: number }[] = [];
+    for (const line of stock) {
+      if (line.location_id !== locationId || !ids.has(line.product_id)) continue;
+      for (const batch of line.batches) {
+        if (!batch.closed_on) result.push({ id: batch.id, leftover: batch.remaining });
+      }
+    }
+    return result;
+  }, [filled, stock, locationId]);
+
   const save = useMutation({
     mutationFn: async () => {
+      if (closeOld && openBatches.length > 0) {
+        for (const batch of openBatches) {
+          const { error: closeError } = await supabase
+            .from("snack_batches")
+            .update({
+              closed_on: deliveredOn,
+              closed_quantity: batch.leftover,
+              close_reason: "COLLECTED",
+            })
+            .eq("id", batch.id);
+          if (closeError) throw closeError;
+        }
+      }
       const rows = filled.map(({ product, line }) => ({
         product_id: product.id,
         location_id: locationId,
@@ -158,6 +206,7 @@ function RestockPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   function renderRow(product: Product) {
     const line = ensureLine(product.id);
@@ -180,6 +229,9 @@ function RestockPage() {
               {onHand > 0 ? (
                 <>
                   {onHand} left{" "}
+                  {current?.earliestBestBefore
+                    ? `· best before ${formatDate(current.earliestBestBefore)} `
+                    : ""}
                   {active && (
                     <>
                       · becomes{" "}
@@ -190,7 +242,11 @@ function RestockPage() {
               ) : (
                 <span className="text-destructive">none left</span>
               )}
+              {current && current.status !== "ok" && current.status !== "out" ? (
+                <span className="text-amber-600"> · {statusLabel(current.status)}</span>
+              ) : null}
             </p>
+
           </div>
           <QtyStepper
             value={line.quantity}
@@ -224,7 +280,13 @@ function RestockPage() {
                 value={line.best_before}
                 onChange={(e) => update(product.id, { best_before: e.target.value })}
               />
+              {bestBeforeSource(product, line.best_before) ? (
+                <span className="mt-1 block text-[11px] normal-case tracking-normal">
+                  {bestBeforeSource(product, line.best_before)}
+                </span>
+              ) : null}
             </label>
+
           </div>
         )}
       </li>
@@ -299,17 +361,51 @@ function RestockPage() {
         />
       </div>
 
+      {filled.length > 0 && openBatches.length > 0 ? (
+        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-card p-3 text-sm">
+          <input
+            type="checkbox"
+            className="mt-1 size-4"
+            checked={closeOld}
+            onChange={(e) => setCloseOld(e.target.checked)}
+          />
+          <span>
+            Close the {openBatches.length} open{" "}
+            {openBatches.length === 1 ? "delivery" : "deliveries"} of these items
+            <span className="block text-xs text-muted-foreground">
+              Records what was left as picked back up, so the new delivery starts clean.
+            </span>
+          </span>
+        </label>
+      ) : null}
+
       <ul className="space-y-3">
+        {needsRestock.length > 0 && (
+          <li>
+            <p className="text-xs font-semibold uppercase tracking-wide text-amber-600">
+              Needs restocking
+            </p>
+          </li>
+        )}
+        {needsRestock.map(renderRow)}
+        {inStock.length > 0 && (
+          <li className="pt-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              In stock
+            </p>
+          </li>
+        )}
         {inStock.map(renderRow)}
         {outOfStock.length > 0 && (
           <li className="pt-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Out of stock
+              Never delivered here
             </p>
           </li>
         )}
         {outOfStock.map(renderRow)}
       </ul>
+
 
       <SaveBar
         summary={`${filled.length} lines · ${totalUnits} units · ${money.format(totalCost)}`}
