@@ -72,14 +72,22 @@ function RestockPage() {
 
   function lastBatchOf(productId: string): SnackBatch | undefined {
     return [...batches]
-      .filter((b) => b.product_id === productId)
+      .filter((b) => b.product_id === productId && b.location_id === locationId)
       .sort((a, b) => b.delivered_on.localeCompare(a.delivered_on))[0];
   }
 
+  /** The product's own due date wins; only fall back to history when it is empty. */
   function defaultBestBefore(product: Product): string {
+    if (product.due_date) return product.due_date;
+    return lastBatchOf(product.id)?.best_before ?? "";
+  }
+
+  function bestBeforeSource(product: Product, value: string): string {
+    if (!value) return "no date yet — the product due date is used on save";
+    if (product.due_date && value === product.due_date) return "from the product due date";
     const last = lastBatchOf(product.id);
-    if (last?.best_before) return last.best_before;
-    return product.due_date ?? "";
+    if (last?.best_before && value === last.best_before) return "from the last delivery here";
+    return "";
   }
 
   function defaultUnitCost(product: Product): string {
@@ -115,15 +123,22 @@ function RestockPage() {
     return products.filter((p) => (q ? p.name.toLowerCase().includes(q) : true));
   }, [products, query]);
 
-  const { inStock, outOfStock } = useMemo(() => {
+  const { needsRestock, inStock, outOfStock } = useMemo(() => {
+    const needsRestock: Product[] = [];
     const inStock: Product[] = [];
     const outOfStock: Product[] = [];
     for (const p of filtered) {
-      const onHand = stockByKey.get(stockKey(locationId, p.id))?.onHand ?? 0;
-      (onHand > 0 ? inStock : outOfStock).push(p);
+      const line = stockByKey.get(stockKey(locationId, p.id));
+      const onHand = line?.onHand ?? 0;
+      const status = line?.status;
+      if (status === "expired" || status === "out" || status === "expiring" || status === "low") {
+        needsRestock.push(p);
+      } else if (onHand > 0) inStock.push(p);
+      else outOfStock.push(p);
     }
-    return { inStock, outOfStock };
+    return { needsRestock, inStock, outOfStock };
   }, [filtered, locationId, stockByKey]);
+
 
   const filled = useMemo(() => {
     return products
