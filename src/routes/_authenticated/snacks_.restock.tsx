@@ -280,7 +280,13 @@ function RestockPage() {
                 value={line.best_before}
                 onChange={(e) => update(product.id, { best_before: e.target.value })}
               />
+              {bestBeforeSource(product, line.best_before) ? (
+                <span className="mt-1 block text-[11px] normal-case tracking-normal">
+                  {bestBeforeSource(product, line.best_before)}
+                </span>
+              ) : null}
             </label>
+
           </div>
         )}
       </li>
