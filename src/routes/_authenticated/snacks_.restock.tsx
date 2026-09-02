@@ -152,8 +152,34 @@ function RestockPage() {
     0,
   );
 
+  /** Batches of the restocked products that are still open at this location. */
+  const openBatches = useMemo(() => {
+    const ids = new Set(filled.map(({ product }) => product.id));
+    const result: { id: string; leftover: number }[] = [];
+    for (const line of stock) {
+      if (line.location_id !== locationId || !ids.has(line.product_id)) continue;
+      for (const batch of line.batches) {
+        if (!batch.closed_on) result.push({ id: batch.id, leftover: batch.remaining });
+      }
+    }
+    return result;
+  }, [filled, stock, locationId]);
+
   const save = useMutation({
     mutationFn: async () => {
+      if (closeOld && openBatches.length > 0) {
+        for (const batch of openBatches) {
+          const { error: closeError } = await supabase
+            .from("snack_batches")
+            .update({
+              closed_on: deliveredOn,
+              closed_quantity: batch.leftover,
+              close_reason: "COLLECTED",
+            })
+            .eq("id", batch.id);
+          if (closeError) throw closeError;
+        }
+      }
       const rows = filled.map(({ product, line }) => ({
         product_id: product.id,
         location_id: locationId,
@@ -173,6 +199,7 @@ function RestockPage() {
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
 
   function renderRow(product: Product) {
     const line = ensureLine(product.id);
