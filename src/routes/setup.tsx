@@ -80,12 +80,21 @@ begin
   )', p_type, l_type);
 end $$;
 
+-- Batch lifecycle: a batch is closed when it is picked back up or thrown away.
+alter table public.snack_batches
+  add column if not exists closed_on date,
+  add column if not exists closed_quantity integer,
+  add column if not exists close_reason text;
+
 create index if not exists snack_batches_loc_prod_idx
-  on public.snack_batches (location_id, product_id);
+  on public.snack_batches (location_id, product_id, delivered_on);
 create index if not exists snack_batches_best_before_idx
   on public.snack_batches (best_before);
+create index if not exists snack_batches_open_idx
+  on public.snack_batches (location_id, product_id) where closed_on is null;
 create index if not exists snack_adjustments_loc_prod_idx
   on public.snack_adjustments (location_id, product_id);
+
 
 do $$
 declare t text;
