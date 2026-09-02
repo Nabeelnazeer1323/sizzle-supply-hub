@@ -20,25 +20,34 @@ export function useLocations() {
   });
 }
 
-/** Every pantry product (snack, breakfast or drink), regardless of week. */
-export function useSnackProducts() {
+/** Every product, used to resolve names for batches whatever their category. */
+export function useAllProducts() {
   return useQuery({
-    queryKey: ["snack-products"],
+    queryKey: ["all-products-basic"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("products")
         .select(PRODUCT_COLUMNS)
         .order("name");
       if (error) throw error;
-      const list = (data as unknown as Product[]).filter(isPantryProduct);
-      return list.sort(
-        (a, b) =>
-          PANTRY_CATEGORIES.indexOf(productCategory(a) as never) -
-            PANTRY_CATEGORIES.indexOf(productCategory(b) as never) ||
-          a.name.localeCompare(b.name),
-      );
+      return data as unknown as Product[];
     },
   });
+}
+
+/** Every pantry product (snack, breakfast or drink), regardless of week. */
+export function useSnackProducts() {
+  const all = useAllProducts();
+  const data = useMemo(() => {
+    const list = (all.data ?? []).filter(isPantryProduct);
+    return list.sort(
+      (a, b) =>
+        PANTRY_CATEGORIES.indexOf(productCategory(a) as never) -
+          PANTRY_CATEGORIES.indexOf(productCategory(b) as never) ||
+        a.name.localeCompare(b.name),
+    );
+  }, [all.data]);
+  return { ...all, data };
 }
 
 export function useSnackBatches() {
@@ -47,17 +56,21 @@ export function useSnackBatches() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("snack_batches")
-        .select("id,product_id,location_id,delivered_on,quantity,unit_cost,best_before,note")
+        .select(
+          "id,product_id,location_id,delivered_on,quantity,unit_cost,best_before,note,closed_on,closed_quantity,close_reason",
+        )
         .order("delivered_on", { ascending: true });
       if (error) throw error;
       return (data as SnackBatch[]).map((b) => ({
         ...b,
         quantity: Number(b.quantity),
         unit_cost: b.unit_cost === null ? null : Number(b.unit_cost),
+        closed_quantity: b.closed_quantity === null ? null : Number(b.closed_quantity),
       }));
     },
   });
 }
+
 
 export function useSnackAdjustments() {
   return useQuery({
