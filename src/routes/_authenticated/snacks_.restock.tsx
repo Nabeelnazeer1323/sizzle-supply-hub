@@ -69,6 +69,11 @@ function RestockPage() {
   useEffect(() => {
     if (!locationId && locations[0]) setLocationId(locations[0].id);
   }, [locations, locationId]);
+  useEffect(() => {
+    setLines({});
+  }, [locationId]);
+
+
 
   const stockByKey = useMemo(() => new Map(stock.map((l) => [l.key, l])), [stock]);
 
