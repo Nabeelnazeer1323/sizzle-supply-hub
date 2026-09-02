@@ -229,6 +229,9 @@ function RestockPage() {
               {onHand > 0 ? (
                 <>
                   {onHand} left{" "}
+                  {current?.earliestBestBefore
+                    ? `· best before ${formatDate(current.earliestBestBefore)} `
+                    : ""}
                   {active && (
                     <>
                       · becomes{" "}
@@ -239,7 +242,11 @@ function RestockPage() {
               ) : (
                 <span className="text-destructive">none left</span>
               )}
+              {current && current.status !== "ok" && current.status !== "out" ? (
+                <span className="text-amber-600"> · {statusLabel(current.status)}</span>
+              ) : null}
             </p>
+
           </div>
           <QtyStepper
             value={line.quantity}
