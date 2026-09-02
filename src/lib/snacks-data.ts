@@ -130,6 +130,7 @@ export function useSnackSales(since: string | null) {
 /** Everything the inventory screens need, wired together. */
 export function useSnackInventory() {
   const locationsQuery = useLocations();
+  const allProductsQuery = useAllProducts();
   const productsQuery = useSnackProducts();
   const batchesQuery = useSnackBatches();
   const adjustmentsQuery = useSnackAdjustments();
@@ -143,12 +144,21 @@ export function useSnackInventory() {
     [batches, salesQuery.data, adjustmentsQuery.data],
   );
 
+  /** Names resolve across every product, so a batch never renders as "unknown". */
+  const productById = useMemo(
+    () => new Map((allProductsQuery.data ?? []).map((p) => [p.id, p])),
+    [allProductsQuery.data],
+  );
+
   return {
     locations: locationsQuery.data ?? [],
     products: productsQuery.data ?? [],
+    allProducts: allProductsQuery.data ?? [],
+    productById,
     batches,
     adjustments: adjustmentsQuery.data ?? [],
     lines,
+
     isPending:
       locationsQuery.isPending ||
       productsQuery.isPending ||
