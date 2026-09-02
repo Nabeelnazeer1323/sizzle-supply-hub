@@ -49,7 +49,7 @@ export function SnackAnalytics({
     [period, anchorDate, fromYear, toYear, yearToDate],
   );
 
-  const { lines, adjustments } = useSnackInventory();
+  const { lines, adjustments, batches } = useSnackInventory();
 
   const productsQuery = useQuery({
     queryKey: ["snack-products"],
@@ -160,7 +160,7 @@ export function SnackAnalytics({
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <Stat label="Units sold" value={String(totals.units)} />
         <Stat label="Revenue" value={money.format(totals.revenue)} />
-        <Stat label="Written off" value={String(wasteUnits)} warn={wasteUnits > 0} />
+        <Stat label="Waste & returns" value={String(wasteUnits)} warn={wasteUnits > 0} />
         <Stat label="Stock value now" value={money.format(stockValue)} />
       </div>
 
