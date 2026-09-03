@@ -308,7 +308,7 @@ function SnacksPage() {
       <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
         <span>{money.format(totals.value)} on the shelf</span>
         <span>·</span>
-        <span>{totals.sold7} sold in 7 days</span>
+        <span>{totals.sold} sold</span>
         {filter ? (
           <Button variant="ghost" size="sm" onClick={() => setFilter(null)}>
             Clear filter
@@ -362,7 +362,7 @@ function SnacksPage() {
                   <div className="text-right">
                     <p className="text-lg font-semibold tabular-nums">{line.onHand}</p>
                     <p className="text-[11px] text-muted-foreground tabular-nums">
-                      {line.soldLast7} sold/7d
+                      {line.sold} sold
                     </p>
                   </div>
                   <StatusBadge status={line.status} />
