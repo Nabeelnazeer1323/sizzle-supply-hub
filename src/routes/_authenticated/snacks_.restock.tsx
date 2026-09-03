@@ -65,9 +65,15 @@ function RestockPage() {
   const [closeOld, setCloseOld] = useState(true);
 
 
+  const search = Route.useSearch();
   useEffect(() => {
+    if (search.location && search.location !== "all") {
+      setLocationId(search.location);
+      return;
+    }
     const stored = window.localStorage.getItem(LAST_LOCATION_KEY);
     if (stored && stored !== "all") setLocationId(stored);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
     if (!locationId && locations[0]) setLocationId(locations[0].id);
