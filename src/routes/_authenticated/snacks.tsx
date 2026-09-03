@@ -136,12 +136,12 @@ function SnacksPage() {
 
   const totals = useMemo(() => {
     let value = 0;
-    let sold7 = 0;
+    let sold = 0;
     for (const line of atLocation) {
       value += line.value;
-      sold7 += line.soldLast7;
+      sold += line.sold;
     }
-    return { value, sold7 };
+    return { value, sold };
   }, [atLocation]);
 
   const visible = useMemo(
@@ -238,7 +238,7 @@ function SnacksPage() {
             </Link>
           </Button>
           <Button asChild>
-            <Link to="/snacks/restock">
+            <Link to="/snacks/restock" search={{ location: locationId }}>
               <PackagePlus className="size-4" /> Restock
             </Link>
           </Button>
@@ -308,7 +308,7 @@ function SnacksPage() {
       <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
         <span>{money.format(totals.value)} on the shelf</span>
         <span>·</span>
-        <span>{totals.sold7} sold in 7 days</span>
+        <span>{totals.sold} sold</span>
         {filter ? (
           <Button variant="ghost" size="sm" onClick={() => setFilter(null)}>
             Clear filter
@@ -362,7 +362,7 @@ function SnacksPage() {
                   <div className="text-right">
                     <p className="text-lg font-semibold tabular-nums">{line.onHand}</p>
                     <p className="text-[11px] text-muted-foreground tabular-nums">
-                      {line.soldLast7} sold/7d
+                      {line.sold} sold
                     </p>
                   </div>
                   <StatusBadge status={line.status} />
@@ -484,7 +484,9 @@ function SnacksPage() {
                 </div>
 
                 <Button asChild variant="secondary" className="w-full">
-                  <Link to="/snacks/restock">Restock this location</Link>
+                  <Link to="/snacks/restock" search={{ location: openLine.location_id }}>
+                    Restock this location
+                  </Link>
                 </Button>
 
                 {adjustments.filter(
