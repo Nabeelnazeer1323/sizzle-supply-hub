@@ -10,6 +10,7 @@ import { useSnackInventory } from "@/lib/snacks-data";
 import {
   batchStatusLabel,
   closeReasonLabel,
+  daysUntil,
   money,
   reasonLabel,
   statusLabel,
@@ -166,6 +167,63 @@ function AttentionOverview({
   );
 }
 
+function ExpiringSoonOverview({
+  lines,
+  productById,
+  locationById,
+  onOpen,
+}: {
+  lines: StockLine[];
+  productById: Map<string, Product>;
+  locationById: Map<string, Location>;
+  onOpen: (key: string) => void;
+}) {
+  if (lines.length === 0) {
+    return (
+      <p className="text-sm text-muted-foreground">Nothing expiring in the next 7 days.</p>
+    );
+  }
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <h2 className="mb-3 text-sm font-medium text-amber-600">Expiring soon</h2>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {lines.map((line) => {
+            const product = productById.get(line.product_id);
+            const location = locationById.get(line.location_id);
+            const daysLeft = line.earliestBestBefore ? daysUntil(line.earliestBestBefore) : null;
+            return (
+              <button
+                key={line.key}
+                type="button"
+                onClick={() => onOpen(line.key)}
+                className="flex items-center justify-between gap-3 rounded-lg border border-amber-500/40 bg-card p-3 text-left transition-colors hover:bg-accent"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">
+                    {product?.name ?? `Product ${line.product_id}`}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {location?.name ?? line.location_id} · {line.onHand} left
+                    {daysLeft !== null
+                      ? ` · ${daysLeft === 0 ? "today" : `${daysLeft}d left`}`
+                      : null}
+                    {line.earliestBestBefore ? ` · ${formatDate(line.earliestBestBefore)}` : null}
+                  </p>
+                </div>
+                <Badge variant="outline" className="border-amber-500 text-amber-600 shrink-0">
+                  Expiring
+                </Badge>
+              </button>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SnacksPage() {
   const queryClient = useQueryClient();
   const { locations, productById, lines, adjustments, isPending, error } = useSnackInventory();
@@ -212,6 +270,21 @@ function SnacksPage() {
         .sort((a, b) => {
           const diff = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
           if (diff !== 0) return diff;
+          return (productById.get(a.product_id)?.name ?? "").localeCompare(
+            productById.get(b.product_id)?.name ?? "",
+          );
+        }),
+    [lines, productById],
+  );
+
+  const expiring = useMemo(
+    () =>
+      lines
+        .filter((line) => line.status === "expiring" || line.expiringUnits > 0)
+        .sort((a, b) => {
+          const aDate = a.earliestBestBefore ?? "";
+          const bDate = b.earliestBestBefore ?? "";
+          if (aDate !== bDate) return aDate.localeCompare(bDate);
           return (productById.get(a.product_id)?.name ?? "").localeCompare(
             productById.get(b.product_id)?.name ?? "",
           );
@@ -342,6 +415,13 @@ function SnacksPage() {
 
       <AttentionOverview
         lines={attention}
+        productById={productById}
+        locationById={locationById}
+        onOpen={setOpenKey}
+      />
+
+      <ExpiringSoonOverview
+        lines={expiring}
         productById={productById}
         locationById={locationById}
         onOpen={setOpenKey}
