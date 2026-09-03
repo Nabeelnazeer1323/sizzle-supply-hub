@@ -180,7 +180,7 @@ function ExpiringSoonOverview({
 }) {
   if (lines.length === 0) {
     return (
-      <p className="text-sm text-muted-foreground">Nothing expiring in the next 7 days.</p>
+      <p className="text-sm text-muted-foreground">Nothing expiring in the next 14 days.</p>
     );
   }
 
@@ -280,7 +280,11 @@ function SnacksPage() {
   const expiring = useMemo(
     () =>
       lines
-        .filter((line) => line.status === "expiring" || line.expiringUnits > 0)
+        .filter((line) =>
+          line.batches.some(
+            (b) => b.remaining > 0 && b.daysLeft !== null && b.daysLeft >= 0 && b.daysLeft <= 14,
+          ),
+        )
         .sort((a, b) => {
           const aDate = a.earliestBestBefore ?? "";
           const bDate = b.earliestBestBefore ?? "";
