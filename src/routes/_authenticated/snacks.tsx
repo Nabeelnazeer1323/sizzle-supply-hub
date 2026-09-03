@@ -385,12 +385,16 @@ function SnacksPage() {
                               Delivered {formatDate(batch.delivered_on)}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {batch.quantity} in · {batch.sold} sold
-                              {batch.adjusted !== 0 ? ` · ${batch.adjusted} adjusted` : ""}
+                              {batch.quantity} delivered · {batch.sold} sold ·{" "}
+                              {batch.adjusted === 0
+                                ? "no corrections"
+                                : `${batch.adjusted > 0 ? "+" : ""}${batch.adjusted} corrections`}{" "}
+                              · {batch.closed_on ? 0 : batch.remaining} left
                               {batch.unit_cost !== null
                                 ? ` · ${money.format(batch.unit_cost)} each`
                                 : ""}
                             </p>
+
                             <p className="text-xs text-muted-foreground">
                               {batch.best_before
                                 ? `Best before ${formatDate(batch.best_before)}`
