@@ -205,6 +205,20 @@ function SnacksPage() {
     return { value, sold };
   }, [atLocation]);
 
+  const attention = useMemo(
+    () =>
+      lines
+        .filter((line) => line.status !== "ok")
+        .sort((a, b) => {
+          const diff = STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
+          if (diff !== 0) return diff;
+          return (productById.get(a.product_id)?.name ?? "").localeCompare(
+            productById.get(b.product_id)?.name ?? "",
+          );
+        }),
+    [lines, productById],
+  );
+
   const visible = useMemo(
     () =>
       atLocation
