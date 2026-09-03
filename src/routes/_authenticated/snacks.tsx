@@ -136,12 +136,12 @@ function SnacksPage() {
 
   const totals = useMemo(() => {
     let value = 0;
-    let sold7 = 0;
+    let sold = 0;
     for (const line of atLocation) {
       value += line.value;
-      sold7 += line.soldLast7;
+      sold += line.sold;
     }
-    return { value, sold7 };
+    return { value, sold };
   }, [atLocation]);
 
   const visible = useMemo(
@@ -238,7 +238,7 @@ function SnacksPage() {
             </Link>
           </Button>
           <Button asChild>
-            <Link to="/snacks/restock">
+            <Link to="/snacks/restock" search={{ location: locationId }}>
               <PackagePlus className="size-4" /> Restock
             </Link>
           </Button>
