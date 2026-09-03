@@ -198,6 +198,23 @@ function SnacksPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const removeAdjustment = useMutation({
+    mutationFn: async (id: string) => {
+      const { error: deleteError } = await supabase
+        .from("snack_adjustments")
+        .delete()
+        .eq("id", id);
+      if (deleteError) throw deleteError;
+    },
+    onSuccess: () => {
+      toast.success("Correction removed");
+      void queryClient.invalidateQueries({ queryKey: ["snack-adjustments"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
+
   const [recount, setRecount] = useState<number>(0);
   useEffect(() => {
     if (openLine) setRecount(openLine.onHand);
@@ -385,12 +402,16 @@ function SnacksPage() {
                               Delivered {formatDate(batch.delivered_on)}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {batch.quantity} in · {batch.sold} sold
-                              {batch.adjusted !== 0 ? ` · ${batch.adjusted} adjusted` : ""}
+                              {batch.quantity} delivered · {batch.sold} sold ·{" "}
+                              {batch.adjusted === 0
+                                ? "no corrections"
+                                : `${batch.adjusted > 0 ? "+" : ""}${batch.adjusted} corrections`}{" "}
+                              · {batch.closed_on ? 0 : batch.remaining} left
                               {batch.unit_cost !== null
                                 ? ` · ${money.format(batch.unit_cost)} each`
                                 : ""}
                             </p>
+
                             <p className="text-xs text-muted-foreground">
                               {batch.best_before
                                 ? `Best before ${formatDate(batch.best_before)}`
@@ -482,19 +503,30 @@ function SnacksPage() {
                         )
                         .slice(0, 10)
                         .map((a) => (
-                          <li key={a.id} className="flex justify-between gap-3 py-2">
+                          <li key={a.id} className="flex items-center justify-between gap-3 py-2">
                             <span>
                               {formatDate(a.occurred_on)} · {reasonLabel(a.reason)}
                             </span>
-                            <span className="tabular-nums text-muted-foreground">
-                              {a.quantity_delta > 0 ? "+" : ""}
-                              {a.quantity_delta}
+                            <span className="flex items-center gap-2">
+                              <span className="tabular-nums text-muted-foreground">
+                                {a.quantity_delta > 0 ? "+" : ""}
+                                {a.quantity_delta}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={removeAdjustment.isPending}
+                                onClick={() => removeAdjustment.mutate(a.id)}
+                              >
+                                Remove
+                              </Button>
                             </span>
                           </li>
                         ))}
                     </ul>
                   </div>
                 ) : null}
+
               </div>
             </>
           ) : null}

@@ -234,9 +234,9 @@ export function buildStock(
       state.sold = taken;
     }
 
-    // Adjustments: tied to a batch when possible, otherwise applied to the
-    // oldest open batch first.
-    const openStates = states.filter((s) => !s.closed_on);
+    // Adjustments: tied to a batch when given, otherwise to the batch that was
+    // actually on the shelf that day (oldest window match first). A correction
+    // dated before a delivery can never touch that delivery.
     for (const adjustment of keyAdjustments) {
       const direct = adjustment.batch_id
         ? states.find((s) => s.id === adjustment.batch_id)
@@ -245,9 +245,17 @@ export function buildStock(
         direct.adjusted += adjustment.quantity_delta;
         continue;
       }
-      const target = openStates[openStates.length - 1] ?? states[states.length - 1];
+      const day = adjustment.occurred_on.slice(0, 10);
+      const inWindow = states.find(
+        (s) => s.delivered_on <= day && (!s.windowEnd || day < s.windowEnd),
+      );
+      const target =
+        inWindow ??
+        [...states].reverse().find((s) => s.delivered_on <= day) ??
+        states[0];
       if (target) target.adjusted += adjustment.quantity_delta;
     }
+
 
     let delivered = 0;
     let sold = 0;
