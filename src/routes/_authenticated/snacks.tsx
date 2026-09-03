@@ -105,6 +105,67 @@ function BatchBadge({ batch }: { batch: BatchState }) {
   return null;
 }
 
+function attentionSubtitle(line: StockLine) {
+  if (line.status === "out") return "none left";
+  if (line.status === "expired")
+    return line.earliestBestBefore
+      ? `${line.onHand} left · expired ${formatDate(line.earliestBestBefore)}`
+      : `${line.onHand} left · expired`;
+  if (line.status === "expiring" && line.earliestBestBefore)
+    return `${line.onHand} left · expires ${formatDate(line.earliestBestBefore)}`;
+  if (line.status === "low")
+    return `${line.onHand} left · ~${Math.floor(line.daysOfCover ?? 0)}d cover`;
+  return `${line.onHand} left`;
+}
+
+function AttentionOverview({
+  lines,
+  productById,
+  locationById,
+  onOpen,
+}: {
+  lines: StockLine[];
+  productById: Map<string, Product>;
+  locationById: Map<string, Location>;
+  onOpen: (key: string) => void;
+}) {
+  if (lines.length === 0) {
+    return <p className="text-sm text-muted-foreground">All snacks look fine.</p>;
+  }
+
+  return (
+    <Card>
+      <CardContent className="p-4">
+        <h2 className="mb-3 text-sm font-medium">Needs attention</h2>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {lines.map((line) => {
+            const product = productById.get(line.product_id);
+            const location = locationById.get(line.location_id);
+            return (
+              <button
+                key={line.key}
+                type="button"
+                onClick={() => onOpen(line.key)}
+                className={`flex items-center justify-between gap-3 rounded-lg border bg-card p-3 text-left transition-colors hover:bg-accent ${TONE_CLASS[line.status]}`}
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-medium">
+                    {product?.name ?? `Product ${line.product_id}`}
+                  </p>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {location?.name ?? line.location_id} · {attentionSubtitle(line)}
+                  </p>
+                </div>
+                <StatusBadge status={line.status} />
+              </button>
+            );
+          })}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function SnacksPage() {
   const queryClient = useQueryClient();
   const { locations, productById, lines, adjustments, isPending, error } = useSnackInventory();
