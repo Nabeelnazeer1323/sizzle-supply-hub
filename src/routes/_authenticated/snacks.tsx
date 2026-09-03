@@ -486,19 +486,30 @@ function SnacksPage() {
                         )
                         .slice(0, 10)
                         .map((a) => (
-                          <li key={a.id} className="flex justify-between gap-3 py-2">
+                          <li key={a.id} className="flex items-center justify-between gap-3 py-2">
                             <span>
                               {formatDate(a.occurred_on)} · {reasonLabel(a.reason)}
                             </span>
-                            <span className="tabular-nums text-muted-foreground">
-                              {a.quantity_delta > 0 ? "+" : ""}
-                              {a.quantity_delta}
+                            <span className="flex items-center gap-2">
+                              <span className="tabular-nums text-muted-foreground">
+                                {a.quantity_delta > 0 ? "+" : ""}
+                                {a.quantity_delta}
+                              </span>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                disabled={removeAdjustment.isPending}
+                                onClick={() => removeAdjustment.mutate(a.id)}
+                              >
+                                Remove
+                              </Button>
                             </span>
                           </li>
                         ))}
                     </ul>
                   </div>
                 ) : null}
+
               </div>
             </>
           ) : null}
