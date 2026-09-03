@@ -340,6 +340,13 @@ function SnacksPage() {
         </Alert>
       ) : null}
 
+      <AttentionOverview
+        lines={attention}
+        productById={productById}
+        locationById={locationById}
+        onOpen={setOpenKey}
+      />
+
       <Select value={locationId} onValueChange={pickLocation}>
         <SelectTrigger className="h-12 w-full text-base sm:max-w-sm" aria-label="Location">
           <SelectValue placeholder="All locations" />
