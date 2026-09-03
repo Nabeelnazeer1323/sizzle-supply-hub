@@ -277,6 +277,21 @@ function SnacksPage() {
     [lines, productById],
   );
 
+  const expiring = useMemo(
+    () =>
+      lines
+        .filter((line) => line.status === "expiring" || line.expiringUnits > 0)
+        .sort((a, b) => {
+          const aDate = a.earliestBestBefore ?? "";
+          const bDate = b.earliestBestBefore ?? "";
+          if (aDate !== bDate) return aDate.localeCompare(bDate);
+          return (productById.get(a.product_id)?.name ?? "").localeCompare(
+            productById.get(b.product_id)?.name ?? "",
+          );
+        }),
+    [lines, productById],
+  );
+
   const visible = useMemo(
     () =>
       atLocation
