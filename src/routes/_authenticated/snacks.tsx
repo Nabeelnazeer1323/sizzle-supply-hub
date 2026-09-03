@@ -198,6 +198,23 @@ function SnacksPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const removeAdjustment = useMutation({
+    mutationFn: async (id: string) => {
+      const { error: deleteError } = await supabase
+        .from("snack_adjustments")
+        .delete()
+        .eq("id", id);
+      if (deleteError) throw deleteError;
+    },
+    onSuccess: () => {
+      toast.success("Correction removed");
+      void queryClient.invalidateQueries({ queryKey: ["snack-adjustments"] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+
+
   const [recount, setRecount] = useState<number>(0);
   useEffect(() => {
     if (openLine) setRecount(openLine.onHand);
