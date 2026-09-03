@@ -484,7 +484,9 @@ function SnacksPage() {
                 </div>
 
                 <Button asChild variant="secondary" className="w-full">
-                  <Link to="/snacks/restock">Restock this location</Link>
+                  <Link to="/snacks/restock" search={{ location: openLine.location_id }}>
+                    Restock this location
+                  </Link>
                 </Button>
 
                 {adjustments.filter(
