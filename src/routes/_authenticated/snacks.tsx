@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BarChart3, PackagePlus } from "lucide-react";
 import { toast } from "sonner";
 
-import { supabase } from "@/lib/supabase";
+import { supabase, type Location, type Product } from "@/lib/supabase";
 import { categoryLabel, isPantryProduct, productCategory } from "@/lib/category";
 import { useSnackInventory } from "@/lib/snacks-data";
 import {
