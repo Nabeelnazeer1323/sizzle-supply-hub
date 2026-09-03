@@ -31,8 +31,8 @@ type Line = {
 };
 
 export const Route = createFileRoute("/_authenticated/snacks_/restock")({
-  validateSearch: (search: Record<string, unknown>): { location?: string } => ({
-    location: typeof search.location === "string" ? search.location : undefined,
+  validateSearch: (search: Record<string, unknown>): { location: string } => ({
+    location: typeof search["location"] === "string" ? search["location"] : "",
   }),
   head: () => ({
     meta: [
