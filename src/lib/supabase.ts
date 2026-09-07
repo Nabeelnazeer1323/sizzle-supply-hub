@@ -14,7 +14,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 });
 
 export const PRODUCT_COLUMNS =
-  "id,numeric_id,name,translated_name,week_number,delivery_day,is_vegan,is_vegetarian,is_snack,types,image_url,storytel_delivery_days,due_date";
+  "id,numeric_id,name,translated_name,description,week_number,delivery_day,is_vegan,is_vegetarian,is_snack,types,image_url,storytel_delivery_days,due_date";
 
 export type Location = {
   id: string;
