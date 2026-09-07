@@ -29,6 +29,7 @@ export type Product = {
   numeric_id: number | null;
   name: string;
   translated_name: string | null;
+  description: string | null;
   week_number: number | null;
   delivery_day: string | null;
   is_vegan: boolean | null;
