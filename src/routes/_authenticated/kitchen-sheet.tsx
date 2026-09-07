@@ -316,8 +316,13 @@ function KitchenSheetPage() {
               <tbody>
                 {totals.map((t) => (
                   <tr key={t.product.id}>
-                    <td className="border border-foreground/30 p-1.5 text-base font-semibold">
-                      {t.product.name}
+                    <td className="border border-foreground/30 p-1.5 align-top">
+                      <div className="text-base font-semibold leading-tight">{t.product.name}</div>
+                      {t.product.description ? (
+                        <div className="mt-0.5 max-w-[14rem] text-[10px] leading-tight text-muted-foreground">
+                          {t.product.description}
+                        </div>
+                      ) : null}
                     </td>
                     <td className="border border-foreground/30 p-1.5 font-medium">
                       {t.product.is_vegan
