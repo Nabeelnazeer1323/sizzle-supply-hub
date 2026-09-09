@@ -22,6 +22,7 @@ import {
 import { DishLocationAnalytics } from "@/components/DishLocationAnalytics";
 import { DietAnalytics } from "@/components/DietAnalytics";
 import { NonSizzleSales } from "@/components/NonSizzleSales";
+import { RevenueLast10Days } from "@/components/RevenueLast10Days";
 import { PurchaseHeatmap } from "@/components/PurchaseHeatmap";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -291,6 +292,8 @@ function DashboardPage() {
         toYear={analyticsToYear}
         yearToDate={analyticsYearToDate}
       />
+
+      <RevenueLast10Days anchorDate={date} />
 
       <WeekBar
         year={year}
