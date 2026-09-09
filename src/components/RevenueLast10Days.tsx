@@ -45,11 +45,12 @@ const revenueConfig = {
 } satisfies ChartConfig;
 
 export function RevenueLast10Days({ anchorDate }: { anchorDate: string }) {
+  const startDay = shiftDate(anchorDate, -9);
   const days = useMemo(
     () => Array.from({ length: 10 }, (_, i) => shiftDate(anchorDate, i - 9)),
     [anchorDate],
   );
-  const start = useMemo(() => stockholmLocalToIso(days[0], "00:00:00"), [days]);
+  const start = useMemo(() => stockholmLocalToIso(startDay, "00:00:00"), [startDay]);
   const end = useMemo(
     () => stockholmLocalToIso(shiftDate(anchorDate, 1), "00:00:00"),
     [anchorDate],
